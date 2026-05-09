@@ -1,23 +1,16 @@
 const notificationRepository = require("../repositories/notification.repository");
 const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
-
-const _formatNotification = (n) => ({
-  id: n._id,
-  type: n.type,
-  message: n.message,
-  read: n.read,
-  createdAt: n.createdAt,
-});
+const NotificationMapper = require("../mappers/notification.mapper");
 
 const createNotification = async ({ userId, type, message }) => {
   const notification = await notificationRepository.create({ userId, type, message });
-  return _formatNotification(notification);
+  return NotificationMapper.toDTO(notification);
 };
 
 const getUserNotifications = async (userId) => {
   const notifications = await notificationRepository.findByUserId(userId);
-  return notifications.map(_formatNotification);
+  return NotificationMapper.toDTOList(notifications);
 };
 
 const markAsRead = async (notificationId, userId) => {
@@ -25,7 +18,7 @@ const markAsRead = async (notificationId, userId) => {
   if (!notification) {
     throw new AppError("Không tìm thấy thông báo", HTTP_STATUS.NOT_FOUND);
   }
-  return _formatNotification(notification);
+  return NotificationMapper.toDTO(notification);
 };
 
 const markAllAsRead = async (userId) => {

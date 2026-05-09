@@ -3,30 +3,16 @@ const { deleteAvatarFromCloudinary } = require("../utils/upload");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
 const AppError = require("../utils/AppError");
+const UserMapper = require("../mappers/user.mapper");
 
-const _formatUser = (user) => ({
-  id: user._id,
-  fullName: user.fullName,
-  email: user.email,
-  role: user.role,
-  type: user.type,
-  phone: user.phone,
-  gender: user.gender,
-  dateOfBirth: user.dateOfBirth,
-  avatar: user.avatar,
-  isActive: user.isActive,
-  isVerified: user.isVerified,
-  phoneActivated: user.phoneActivated,
-  createdAt: user.createdAt,
-  updatedAt: user.updatedAt,
-});
+
 
 const getUserInfo = async (userId) => {
   const user = await userRepository.findById(userId);
   if (!user) {
     throw new AppError(MESSAGE.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
-  return _formatUser(user);
+  return UserMapper.toDTO(user);
 };
 
 const uploadAvatar = async (userId, avatarUrl) => {
@@ -43,7 +29,7 @@ const uploadAvatar = async (userId, avatarUrl) => {
     deleteAvatarFromCloudinary(oldAvatar);
   }
 
-  return _formatUser(user);
+  return UserMapper.toDTO(user);
 };
 
 const updateProfile = async (userId, { fullName, phone, gender, dateOfBirth, avatar }) => {
@@ -60,7 +46,7 @@ const updateProfile = async (userId, { fullName, phone, gender, dateOfBirth, ava
   if (!user) {
     throw new AppError(MESSAGE.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
-  return _formatUser(user);
+  return UserMapper.toDTO(user);
 };
 
 module.exports = {

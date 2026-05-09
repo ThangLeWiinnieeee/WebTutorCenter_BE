@@ -10,6 +10,7 @@ const HTTP_STATUS = require("../constants/status");
 const ACCOUNT_TYPE = require("../constants/accountType");
 const OTP_TYPE = require("../constants/otpType");
 const AppError = require("../utils/AppError");
+const UserMapper = require("../mappers/user.mapper");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -20,23 +21,6 @@ const _issueTokens = async (user) => {
   await userRepository.updateRefreshToken(user._id, refreshToken);
   return { accessToken, refreshToken };
 };
-
-const _formatUser = (user) => ({
-  id: user._id,
-  fullName: user.fullName,
-  email: user.email,
-  role: user.role,
-  type: user.type,
-  phone: user.phone,
-  gender: user.gender,
-  dateOfBirth: user.dateOfBirth,
-  avatar: user.avatar,
-  isActive: user.isActive,
-  isVerified: user.isVerified,
-  phoneActivated: user.phoneActivated,
-  createdAt: user.createdAt,
-  updatedAt: user.updatedAt,
-});
 
 const _createAndSendOtp = async ({ email, fullName, type }) => {
   const existingOtp = await otpRepository.findLatestActiveByEmailAndType(email, type);
@@ -121,7 +105,7 @@ const verifyOtp = async ({ email, otp, type = OTP_TYPE.REGISTER }) => {
   if (type === OTP_TYPE.REGISTER) {
     const verifiedUser = await userRepository.verifyUser(user._id);
     const { accessToken, refreshToken } = await _issueTokens(verifiedUser);
-    return { accessToken, refreshToken, user: _formatUser(verifiedUser) };
+    return { accessToken, refreshToken, user: UserMapper.toDTO(verifiedUser) };
   }
 
   // Với forgot_password: chỉ trả về xác nhận, việc đổi mật khẩu xử lý ở bước tiếp theo
@@ -238,7 +222,7 @@ const login = async ({ email, password }) => {
   }
 
   const { accessToken, refreshToken } = await _issueTokens(user);
-  return { accessToken, refreshToken, user: _formatUser(user) };
+  return { accessToken, refreshToken, user: UserMapper.toDTO(user) };
 };
 
 // ─── LOGOUT ───
@@ -297,7 +281,7 @@ const googleLogin = async ({ credential }) => {
     }
 
     const { accessToken, refreshToken } = await _issueTokens(existingUser);
-    return { accessToken, refreshToken, user: _formatUser(existingUser) };
+    return { accessToken, refreshToken, user: UserMapper.toDTO(existingUser) };
   }
 
   const newUser = await userRepository.create({
@@ -309,7 +293,7 @@ const googleLogin = async ({ credential }) => {
   });
 
   const { accessToken, refreshToken } = await _issueTokens(newUser);
-  return { accessToken, refreshToken, user: _formatUser(newUser) };
+  return { accessToken, refreshToken, user: UserMapper.toDTO(newUser) };
 };
 
 module.exports = {
