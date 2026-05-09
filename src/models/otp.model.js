@@ -8,10 +8,12 @@ const otpSchema = new mongoose.Schema(
       required: true,
       lowercase: true,
       trim: true,
+      match: [/^\S+@\S+\.\S+$/, "Email không hợp lệ"],
     },
     otp: {
       type: String,
       required: true,
+      match: [/^\d{6}$/, "OTP phải là chuỗi 6 chữ số"],
     },
     type: {
       type: String,

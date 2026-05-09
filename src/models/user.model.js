@@ -39,6 +39,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
       trim: true,
+      match: [/^(0[3|5|7|8|9])+([0-9]{8})$/, "Số điện thoại không hợp lệ"],
     },
     gender: {
       type: String,

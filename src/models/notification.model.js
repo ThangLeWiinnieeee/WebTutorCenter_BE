@@ -23,6 +23,7 @@ const notificationSchema = new mongoose.Schema(
       type: String,
       required: [true, "Nội dung thông báo là bắt buộc"],
       trim: true,
+      maxlength: [500, "Nội dung thông báo không được vượt quá 500 ký tự"],
     },
     read: {
       type: Boolean,
