@@ -14,14 +14,14 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 
-const User = require("../src/modules/users/user.model");
-const Tutor = require("../src/modules/tutors/tutor.model");
-const { Province, District } = require("../src/modules/locations/location.model");
-const { hashPassword } = require("../src/core/utils/hash");
-const ROLES = require("../src/core/constants/role");
-const ACCOUNT_TYPE = require("../src/core/constants/accountType");
-const { TUTOR_STATUS } = require("../src/modules/tutors/constants");
-const OCCUPATION_STATUS = require("../src/modules/tutors/constants/occupationStatus");
+const User = require("../src/models/user.model");
+const Tutor = require("../src/models/tutor.model");
+const { Province, District } = require("../src/models/location.model");
+const { hashPassword } = require("../src/utils/hash");
+const ROLES = require("../src/constants/role");
+const ACCOUNT_TYPE = require("../src/constants/accountType");
+const { TUTOR_STATUS } = require("../src/constants/tutor");
+const OCCUPATION_STATUS = require("../src/constants/tutor/occupationStatus");
 
 const DEFAULT_PASSWORD = "Password123";
 

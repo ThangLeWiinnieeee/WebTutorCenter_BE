@@ -9,75 +9,90 @@ WebTutorCenter_BE/
 ├── server.js                         # Entry: dotenv, connectDB, app.listen
 ├── app.js                            # Express app: CORS, morgan, JSON parser, cookieParser, /api, error handler
 ├── scripts/
-│   └── seedLocations.js              # Fetch provinces.open-api.vn và upsert Province/District vào MongoDB
+│   ├── seedLocations.js              # Fetch provinces.open-api.vn và upsert Province/District vào MongoDB
+│   ├── seedSchools.js                # Seed danh sách trường đại học/cao đẳng/học viện
+│   └── seedDemoData.js              # Seed dữ liệu demo users và pending tutors
 ├── src/
+│   ├── configs/
+│   │   ├── cloudinary.js             # Cloudinary config
+│   │   ├── cors.js                   # CORS options dùng trong app.js
+│   │   └── database.js               # Mongoose connection
+│   ├── constants/
+│   │   ├── accountType.js            # local | google
+│   │   ├── message.js                # Message dùng chung
+│   │   ├── otpType.js                # register | forgot_password
+│   │   ├── role.js                   # user | tutor | admin
+│   │   ├── status.js                 # HTTP status constants
+│   │   └── tutor/
+│   │       ├── index.js
+│   │       ├── occupationStatus.js
+│   │       ├── subject.js
+│   │       └── tutor.js
+│   ├── controllers/
+│   │   ├── auth.controller.js
+│   │   ├── user.controller.js
+│   │   ├── tutor.controller.js
+│   │   ├── location.controller.js
+│   │   └── notification.controller.js
+│   ├── services/
+│   │   ├── auth.service.js
+│   │   ├── user.service.js
+│   │   ├── tutor.service.js          # Đăng ký/duyệt/từ chối gia sư + tạo notification
+│   │   ├── location.service.js
+│   │   └── notification.service.js
+│   ├── repositories/
+│   │   ├── user.repository.js
+│   │   ├── tutor.repository.js
+│   │   ├── location.repository.js
+│   │   ├── notification.repository.js
+│   │   └── otp.repository.js
+│   ├── models/
+│   │   ├── user.model.js
+│   │   ├── tutor.model.js            # Tutor profile, currentArea, teachingAreas, availability
+│   │   ├── location.model.js         # Province, District, School schemas
+│   │   ├── notification.model.js     # Notification + TTL readAt 7 ngày
+│   │   └── otp.model.js
+│   ├── validations/
+│   │   ├── auth.validation.js
+│   │   ├── user.validation.js
+│   │   └── tutor.validation.js
 │   ├── routes/
-│   │   └── index.js                  # Mount /auth, /users, /tutors, /locations, /notifications
-│   ├── core/
-│   │   ├── configs/
-│   │   │   ├── cloudinary.js         # Cloudinary config
-│   │   │   ├── cors.js               # CORS options dùng trong app.js
-│   │   │   └── database.js           # Mongoose connection
-│   │   ├── constants/
-│   │   │   ├── accountType.js        # local | google
-│   │   │   ├── message.js            # Message dùng chung
-│   │   │   ├── otpType.js            # register | forgot_password
-│   │   │   ├── role.js               # user | tutor | admin
-│   │   │   └── status.js             # HTTP status constants
-│   │   ├── middlewares/
-│   │   │   ├── auth.middleware.js    # Verify JWT, gắn req.user
-│   │   │   ├── error.middleware.js   # Xử lý lỗi tập trung
-│   │   │   └── role.middleware.js    # authorize theo role
-│   │   └── utils/
-│   │       ├── AppError.js           # Lỗi nghiệp vụ/user-facing
-│   │       ├── email.js              # Gửi mail OTP
-│   │       ├── hash.js               # bcrypt hash/compare
-│   │       ├── otp.js                # Tạo OTP, expiry, cooldown
-│   │       ├── response.js           # successResponse/errorResponse
-│   │       ├── token.js              # JWT generate/verify
-│   │       └── upload.js             # Multer + Cloudinary avatar upload/delete
-│   └── modules/
-│       ├── auth/
-│       │   ├── auth.controller.js
-│       │   ├── auth.routes.js
-│       │   ├── auth.service.js
-│       │   └── auth.validation.js
-│       ├── locations/
-│       │   ├── location.controller.js
-│       │   ├── location.model.js     # Province, District schemas
-│       │   ├── location.repository.js
-│       │   ├── location.routes.js
-│       │   └── location.service.js
-│       ├── notifications/
-│       │   ├── notification.controller.js
-│       │   ├── notification.model.js # Notification + TTL readAt 7 ngày
-│       │   ├── notification.repository.js
-│       │   ├── notification.routes.js
-│       │   └── notification.service.js
-│       ├── otp/
-│       │   ├── otp.model.js
-│       │   └── otp.repository.js
-│       ├── tutors/
-│       │   ├── constants/
-│       │   │   ├── index.js
-│       │   │   ├── occupationStatus.js
-│       │   │   ├── subject.js
-│       │   │   └── tutor.js
-│       │   ├── tutor.controller.js
-│       │   ├── tutor.model.js        # Tutor profile, currentArea, teachingAreas, availability
-│       │   ├── tutor.repository.js
-│       │   ├── tutor.routes.js
-│       │   ├── tutor.service.js      # Đăng ký/duyệt/từ chối gia sư + tạo notification
-│       │   └── tutor.validation.js
-│       └── users/
-│           ├── user.controller.js
-│           ├── user.model.js
-│           ├── user.repository.js
-│           ├── user.routes.js
-│           ├── user.service.js
-│           └── user.validation.js
+│   │   ├── index.js                  # Mount /auth, /users, /tutors, /locations, /notifications
+│   │   ├── auth.routes.js
+│   │   ├── user.routes.js
+│   │   ├── tutor.routes.js
+│   │   ├── location.routes.js
+│   │   └── notification.routes.js
+│   ├── middlewares/
+│   │   ├── auth.middleware.js         # Verify JWT, gắn req.user
+│   │   ├── error.middleware.js        # Xử lý lỗi tập trung
+│   │   └── role.middleware.js         # authorize theo role
+│   └── utils/
+│       ├── AppError.js               # Lỗi nghiệp vụ/user-facing
+│       ├── email.js                  # Gửi mail OTP
+│       ├── hash.js                   # bcrypt hash/compare
+│       ├── otp.js                    # Tạo OTP, expiry, cooldown
+│       ├── response.js              # successResponse/errorResponse
+│       ├── token.js                  # JWT generate/verify
+│       └── upload.js                 # Multer + Cloudinary avatar upload/delete
 ├── package.json
 └── STRUCTURE.md
+```
+
+## Kiến trúc Layer
+
+```text
+src/
+├── controllers/    # Nhận req/res, gọi service, trả successResponse()
+├── services/       # Logic nghiệp vụ, throw AppError
+├── repositories/   # Truy vấn DB
+├── models/         # Mongoose schema
+├── validations/    # Joi schema cho request validation
+├── routes/         # Khai báo endpoint và middleware
+├── configs/        # Cấu hình hệ thống (DB, CORS, Cloudinary)
+├── constants/      # Constants dùng chung + constants riêng module (tutor/)
+├── middlewares/    # Middleware xác thực, phân quyền, xử lý lỗi
+└── utils/          # Tiện ích dùng chung (hash, token, email, upload...)
 ```
 
 ## Module hiện tại
@@ -188,24 +203,23 @@ Lưu OTP theo email/type/expiry, phục vụ đăng ký và quên mật khẩu.
 Request
   -> app.js middleware
   -> src/routes/index.js
-  -> module.routes.js
+  -> <module>.routes.js
   -> auth/role/validate middleware
-  -> module.controller.js
-  -> module.service.js
-  -> module.repository.js
+  -> <module>.controller.js
+  -> <module>.service.js
+  -> <module>.repository.js
   -> MongoDB/Mongoose
 ```
 
-## Quy ước module
+## Quy ước file theo layer
 
 ```text
-modules/<module>/
-├── <module>.controller.js     # Nhận req/res, gọi service, trả successResponse()
-├── <module>.routes.js         # Khai báo endpoint và middleware
-├── <module>.service.js        # Logic nghiệp vụ, throw AppError
-├── <module>.repository.js     # Truy vấn DB
-├── <module>.model.js          # Mongoose schema nếu module có collection
-└── <module>.validation.js     # Joi schema nếu có request cần validate
+controllers/<module>.controller.js     # Nhận req/res, gọi service, trả successResponse()
+routes/<module>.routes.js              # Khai báo endpoint và middleware
+services/<module>.service.js           # Logic nghiệp vụ, throw AppError
+repositories/<module>.repository.js    # Truy vấn DB
+models/<module>.model.js               # Mongoose schema nếu module có collection
+validations/<module>.validation.js     # Joi schema nếu có request cần validate
 ```
 
 ## Biến môi trường

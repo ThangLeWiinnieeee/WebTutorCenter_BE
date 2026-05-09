@@ -7,7 +7,7 @@
 
 require("dotenv").config();
 const mongoose = require("mongoose");
-const locationRepository = require("../src/modules/locations/location.repository");
+const locationRepository = require("../src/repositories/location.repository");
 
 const SCHOOLS = [
   // ─── ĐẠI HỌC QUỐC GIA & VÙNG ───
