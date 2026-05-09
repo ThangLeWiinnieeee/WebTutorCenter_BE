@@ -17,7 +17,8 @@ const create = async (tutorData) => {
 };
 
 const update = async (tutorId, updateData) => {
-  return await Tutor.findByIdAndUpdate(tutorId, updateData, { new: true, runValidators: true });
+  return await Tutor.findByIdAndUpdate(tutorId, updateData, { new: true, runValidators: true })
+    .populate("userId", POPULATE_USER);
 };
 
 const updateByUserId = async (userId, updateData) => {
