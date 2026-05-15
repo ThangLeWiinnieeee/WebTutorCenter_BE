@@ -6,6 +6,7 @@ const userRoutes = require("./user.routes");
 const tutorRoutes = require("./tutor.routes");
 const locationRoutes = require("./location.routes");
 const notificationRoutes = require("./notification.routes");
+const classRoutes = require("./class.routes");
 
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);

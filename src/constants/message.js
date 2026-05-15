@@ -55,6 +55,15 @@ const MESSAGE = {
   // Server
   INTERNAL_SERVER_ERROR: "Lỗi máy chủ nội bộ",
   FORBIDDEN: "Bạn không có quyền thực hiện hành động này",
+
+  // Class
+  QUOTE_SUCCESS: "Tính học phí lớp mới thành công",
+  CREATE_SUCCESS: "Đăng lớp mới thành công",
+  LIST_SUCCESS: "Lấy danh sách lớp mới thành công",
+  DETAIL_SUCCESS: "Lấy chi tiết lớp mới thành công",
+  SUBJECT_LIST_SUCCESS: "Lấy danh sách môn học thành công",
+  CLASS_NOT_FOUND: "Không tìm thấy lớp mới",
+  INVALID_AREA: "Khu vực tỉnh/quận không hợp lệ",
 };
 
 module.exports = MESSAGE;

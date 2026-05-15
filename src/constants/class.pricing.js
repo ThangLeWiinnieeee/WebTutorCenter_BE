@@ -7,7 +7,21 @@ const BASE_FEE_BY_SUBJECT = {
   "Sinh học": 150000,
   "Lịch sử": 130000,
   "Địa lý": 130000,
+  "Giáo dục công dân": 130000,
   "Tin học": 180000,
+  "Tiếng Pháp": 180000,
+  "Tiếng Trung": 180000,
+  "Tiếng Nhật": 180000,
+  "Tiếng Hàn": 180000,
+  "Tiếng Đức": 180000,
+  "Âm nhạc": 160000,
+  "Mỹ thuật": 160000,
+  "Thể dục": 120000,
+  "Toán cao cấp": 200000,
+  "Vật lý đại cương": 190000,
+  "Hóa học đại cương": 190000,
+  "Lập trình": 200000,
+  "Kinh tế": 170000,
 };
 
 const DEFAULT_BASE_FEE = 150000;
