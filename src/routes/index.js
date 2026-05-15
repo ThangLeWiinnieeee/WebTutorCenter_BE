@@ -12,5 +12,6 @@ router.use("/users", userRoutes);
 router.use("/tutors", tutorRoutes);
 router.use("/locations", locationRoutes);
 router.use("/notifications", notificationRoutes);
+router.use("/classes", classRoutes);
 
 module.exports = router;

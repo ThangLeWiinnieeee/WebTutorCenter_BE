@@ -5,16 +5,17 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "seed:locations": "node scripts/seedLocations.js",
     "seed:users": "node scripts/seedDemoData.js users",
     "seed:tutors": "node scripts/seedDemoData.js tutors",
     "seed:schools": "node scripts/seedSchools.js",
-    "seed:demo": "node scripts/seedDemoData.js all"
+    "seed:demo": "node scripts/seedDemoData.js all",
+    "dev": "node --watch server.js",
+    "seed:locations": "node scripts/seedLocations.js",
+    "seed:classes": "node scripts/seedClasses.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "cloudinary": "^1.41.3",
+    "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
