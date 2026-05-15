@@ -2,6 +2,7 @@ const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const locationRepository = require("../repositories/location.repository");
 const classRepository = require("../repositories/class.repository");
+const ClassMapper = require("../mappers/class.mapper");
 const { MESSAGE, SUBJECTS } = require("../constants/tutor/tutor");
 const {
   BASE_FEE_BY_SUBJECT,
@@ -59,7 +60,8 @@ const quoteClass = async (payload) => {
 
 const createClass = async (payload, userId) => {
   const data = await buildClassData(payload, userId);
-  return await classRepository.create(data);
+  const created = await classRepository.create(data);
+  return ClassMapper.toDTO(created);
 };
 
 const normalizeSubjectFilter = (subject) => {
@@ -81,7 +83,7 @@ const getClasses = async (query) => {
   const totalPages = Math.max(1, Math.ceil(totalItems / limit));
 
   return {
-    classes,
+    classes: ClassMapper.toDTOs(classes),
     pagination: {
       page,
       limit,
@@ -98,7 +100,7 @@ const getClassById = async (id) => {
   if (!classItem) {
     throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
-  return classItem;
+  return ClassMapper.toDTO(classItem);
 };
 
 const getSubjects = async () => {

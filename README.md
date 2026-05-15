@@ -62,7 +62,7 @@ Script này upsert dữ liệu `Province` và `District`, có thể chạy lại
 src/
 ├── controllers/        # Nhận req/res, gọi service, trả successResponse()
 ├── services/           # Logic nghiệp vụ, throw AppError
-├── mappers/            # Chuyển đổi DB document → DTO (UserMapper, TutorMapper, NotificationMapper)
+├── mappers/            # Chuyển đổi DB document → DTO (UserMapper, TutorMapper, NotificationMapper, ClassMapper)
 ├── repositories/       # Truy vấn MongoDB/Mongoose
 ├── models/             # Mongoose schema
 ├── validations/        # Joi schema cho request validation
@@ -124,6 +124,16 @@ Chi tiết cấu trúc xem thêm `STRUCTURE.md`.
 | GET | `/` | Lấy thông báo của user hiện tại |
 | PATCH | `/:id/read` | Đánh dấu một thông báo đã đọc |
 | PATCH | `/read-all` | Đánh dấu tất cả thông báo đã đọc |
+
+### Classes - `/api/classes`
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| POST | `/quote` | Tính học phí dự kiến |
+| POST | `/` | Đăng lớp học mới |
+| GET | `/` | Lấy danh sách lớp học |
+| GET | `/subjects` | Lấy danh sách môn học |
+| GET | `/:id` | Lấy chi tiết lớp học |
 
 ## Luồng Nghiệp Vụ Chính
 

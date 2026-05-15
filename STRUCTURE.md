@@ -33,40 +33,47 @@ WebTutorCenter_BE/
 │   │   ├── user.controller.js
 │   │   ├── tutor.controller.js
 │   │   ├── location.controller.js
-│   │   └── notification.controller.js
+│   │   ├── notification.controller.js
+│   │   └── class.controller.js
 │   ├── services/
 │   │   ├── auth.service.js
 │   │   ├── user.service.js
 │   │   ├── tutor.service.js          # Đăng ký/duyệt/từ chối gia sư + tạo notification
 │   │   ├── location.service.js
-│   │   └── notification.service.js
+│   │   ├── notification.service.js
+│   │   └── class.service.js
 │   ├── mappers/
 │   │   ├── user.mapper.js            # UserMapper.toDTO — chuyển User document → DTO
 │   │   ├── tutor.mapper.js           # TutorMapper.toDTO/toDTOList — resolve area codes, cache per-request
-│   │   └── notification.mapper.js    # NotificationMapper.toDTO/toDTOList
+│   │   ├── notification.mapper.js    # NotificationMapper.toDTO/toDTOList
+│   │   └── class.mapper.js           # ClassMapper.toDTO/toDTOList
 │   ├── repositories/
 │   │   ├── user.repository.js
 │   │   ├── tutor.repository.js
 │   │   ├── location.repository.js
 │   │   ├── notification.repository.js
-│   │   └── otp.repository.js
+│   │   ├── otp.repository.js
+│   │   └── class.repository.js
 │   ├── models/
 │   │   ├── user.model.js
 │   │   ├── tutor.model.js            # Tutor profile, currentArea, teachingAreas, availability
 │   │   ├── location.model.js         # Province, District, School schemas
 │   │   ├── notification.model.js     # Notification + TTL readAt 7 ngày
-│   │   └── otp.model.js
+│   │   ├── otp.model.js
+│   │   └── class.model.js            # Class profile, subject, pricing, availability
 │   ├── validations/
 │   │   ├── auth.validation.js
 │   │   ├── user.validation.js
-│   │   └── tutor.validation.js
+│   │   ├── tutor.validation.js
+│   │   └── class.validation.js
 │   ├── routes/
 │   │   ├── index.js                  # Mount /auth, /users, /tutors, /locations, /notifications
 │   │   ├── auth.routes.js
 │   │   ├── user.routes.js
 │   │   ├── tutor.routes.js
 │   │   ├── location.routes.js
-│   │   └── notification.routes.js
+│   │   ├── notification.routes.js
+│   │   └── class.routes.js
 │   ├── middlewares/
 │   │   ├── auth.middleware.js         # Verify JWT, gắn req.user
 │   │   ├── error.middleware.js        # Xử lý lỗi tập trung
@@ -89,7 +96,7 @@ WebTutorCenter_BE/
 src/
 ├── controllers/    # Nhận req/res, gọi service, trả successResponse()
 ├── services/       # Logic nghiệp vụ, throw AppError
-├── mappers/        # Chuyển đổi DB document → DTO (UserMapper, TutorMapper, NotificationMapper)
+├── mappers/        # Chuyển đổi DB document → DTO (UserMapper, TutorMapper, NotificationMapper, ClassMapper)
 ├── repositories/   # Truy vấn DB
 ├── models/         # Mongoose schema
 ├── validations/    # Joi schema cho request validation
@@ -150,6 +157,14 @@ Lưu thông báo theo `userId` trong MongoDB. Notification có `read`, `readAt`;
 
 Lưu OTP theo email/type/expiry, phục vụ đăng ký và quên mật khẩu.
 
+### `classes`
+
+Quản lý lớp học mới:
+- Người dùng đăng tin lớp học mới.
+- Hệ thống tính toán học phí dự kiến dựa trên môn học, thời lượng và số lượng học sinh.
+- Lọc và tìm kiếm lớp học theo môn học, tỉnh/thành, quận/huyện.
+- Xem chi tiết lớp học.
+
 ## API Routes
 
 **Base:** `/api`
@@ -201,6 +216,16 @@ Lưu OTP theo email/type/expiry, phục vụ đăng ký và quên mật khẩu.
 | GET | `/` | authenticate | Lấy thông báo của user hiện tại |
 | PATCH | `/:id/read` | authenticate | Đánh dấu một thông báo đã đọc |
 | PATCH | `/read-all` | authenticate | Đánh dấu tất cả thông báo đã đọc |
+
+### Classes - `/api/classes`
+
+| Method | Endpoint | Middleware | Mô tả |
+|---|---|---|---|
+| POST | `/quote` | authenticate, validate | Tính học phí dự kiến |
+| POST | `/` | authenticate, validate | Đăng lớp học mới |
+| GET | `/` | validate | Lấy danh sách lớp học |
+| GET | `/subjects` | - | Lấy danh sách môn học |
+| GET | `/:id` | - | Lấy chi tiết lớp học |
 
 ## Luồng xử lý chuẩn
 
