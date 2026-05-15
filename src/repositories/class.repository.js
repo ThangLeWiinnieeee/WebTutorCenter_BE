@@ -1,4 +1,4 @@
-const ClassModel = require("./class.model");
+const ClassModel = require("../models/class.model");
 
 const create = async (payload) => {
   const doc = new ClassModel(payload);

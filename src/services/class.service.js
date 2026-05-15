@@ -1,15 +1,14 @@
-const AppError = require("../../core/utils/AppError");
-const HTTP_STATUS = require("../../core/constants/status");
-const locationRepository = require("../locations/location.repository");
-const classRepository = require("./class.repository");
-const { MESSAGE } = require("./constants");
+const AppError = require("../utils/AppError");
+const HTTP_STATUS = require("../constants/status");
+const locationRepository = require("../repositories/location.repository");
+const classRepository = require("../repositories/class.repository");
+const { MESSAGE, SUBJECTS } = require("../constants/tutor/tutor");
 const {
   BASE_FEE_BY_SUBJECT,
   DEFAULT_BASE_FEE,
   STUDENT_COUNT_SURCHARGE,
   SESSION_LENGTH_BASE_MINUTES,
-} = require("./class.pricing");
-const { SUBJECTS } = require("./constants");
+} = require("../constants/class.pricing");
 
 const generateClassCode = async () => {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -97,7 +96,7 @@ const getClasses = async (query) => {
 const getClassById = async (id) => {
   const classItem = await classRepository.findById(id);
   if (!classItem) {
-    throw new AppError(MESSAGE.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+    throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
   return classItem;
 };

@@ -1,16 +1,9 @@
 const mongoose = require("mongoose");
-const classService = require("./class.service");
-const { successResponse } = require("../../core/utils/response");
-const AppError = require("../../core/utils/AppError");
-const HTTP_STATUS = require("../../core/constants/status");
-const { MESSAGE } = require("./constants");
-
-const handleError = (error, res, next) => {
-  if (error instanceof AppError) {
-    return res.status(error.statusCode).json({ success: false, message: error.message });
-  }
-  return next(error);
-};
+const classService = require("../services/class.service");
+const { successResponse } = require("../utils/response");
+const AppError = require("../utils/AppError");
+const HTTP_STATUS = require("../constants/status");
+const { MESSAGE } = require("../constants/tutor/tutor");
 
 const quoteClass = async (req, res, next) => {
   try {
@@ -20,7 +13,7 @@ const quoteClass = async (req, res, next) => {
       data: quote,
     });
   } catch (error) {
-    return handleError(error, res, next);
+    next(error);
   }
 };
 
@@ -33,7 +26,7 @@ const createClass = async (req, res, next) => {
       data: { classItem: created },
     });
   } catch (error) {
-    return handleError(error, res, next);
+    next(error);
   }
 };
 
@@ -45,7 +38,7 @@ const getClasses = async (req, res, next) => {
       data: result,
     });
   } catch (error) {
-    return handleError(error, res, next);
+    next(error);
   }
 };
 
@@ -53,7 +46,7 @@ const getClassDetail = async (req, res, next) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new AppError(MESSAGE.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+      throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
     }
     const classItem = await classService.getClassById(id);
     return successResponse(res, {
@@ -61,7 +54,7 @@ const getClassDetail = async (req, res, next) => {
       data: { classItem },
     });
   } catch (error) {
-    return handleError(error, res, next);
+    next(error);
   }
 };
 
@@ -73,7 +66,7 @@ const getSubjects = async (req, res, next) => {
       data: { subjects },
     });
   } catch (error) {
-    return handleError(error, res, next);
+    next(error);
   }
 };
 
