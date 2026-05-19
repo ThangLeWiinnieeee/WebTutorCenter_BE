@@ -11,7 +11,8 @@
     "seed:demo": "node scripts/seedDemoData.js all",
     "dev": "node --watch server.js",
     "seed:locations": "node scripts/seedLocations.js",
-    "seed:classes": "node scripts/seedClasses.js"
+    "seed:classes": "node scripts/seedClasses.js",
+    "seed:pricing": "node scripts/seedClassPricing.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

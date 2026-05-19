@@ -62,6 +62,8 @@ const MESSAGE = {
   LIST_SUCCESS: "Lấy danh sách lớp mới thành công",
   DETAIL_SUCCESS: "Lấy chi tiết lớp mới thành công",
   SUBJECT_LIST_SUCCESS: "Lấy danh sách môn học thành công",
+  PRICING_CONFIG_SUCCESS: "Lấy cấu hình học phí thành công",
+  PRICING_CONFIG_MISSING: "Chưa cấu hình học phí, vui lòng chạy seed pricing",
   CLASS_NOT_FOUND: "Không tìm thấy lớp mới",
   INVALID_AREA: "Khu vực tỉnh/quận không hợp lệ",
 };
