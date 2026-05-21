@@ -55,8 +55,16 @@ const findAllApproved = async (page = 1, limit = 20) => {
   return { tutors, total, page, limit };
 };
 
-// Lấy top gia sư nổi bật tháng hiện tại (sắp xếp theo classesAcceptedThisMonth)
+// Lấy top gia sư nổi bật (sắp xếp theo tổng số lần nhận lớp)
 const findTopTutors = async (limit = 10) => {
+  return await Tutor.find({ status: TUTOR_STATUS.APPROVED })
+    .populate("userId", POPULATE_USER)
+    .sort({ totalClassesAccepted: -1, createdAt: -1 })
+    .limit(limit);
+};
+
+// Lấy top gia sư tháng hiện tại (sắp xếp theo classesAcceptedThisMonth)
+const findTopTutorsThisMonth = async (limit = 10) => {
   return await Tutor.find({ status: TUTOR_STATUS.APPROVED })
     .populate("userId", POPULATE_USER)
     .sort({ classesAcceptedThisMonth: -1, totalClassesAccepted: -1 })
@@ -107,6 +115,11 @@ const searchTutors = async (filters = {}, page = 1, limit = 20) => {
     query["teachingAreas.districts"] = filters.district;
   }
 
+  // Lọc theo năm sinh (từ User model - xử lý ở application layer)
+  if (filters.yearOfBirth) {
+    // Sẽ filter ở application layer vì dateOfBirth ở User model
+  }
+
   // Nếu có filter gender, cần populate user và filter ở application layer
   let tutors = await Tutor.find(query)
     .populate("userId", POPULATE_USER)
@@ -119,6 +132,15 @@ const searchTutors = async (filters = {}, page = 1, limit = 20) => {
     tutors = tutors.filter((t) => t.userId?.gender === filters.gender);
   }
 
+  // Filter theo năm sinh nếu có (tính từ dateOfBirth)
+  if (filters.yearOfBirth) {
+    tutors = tutors.filter((t) => {
+      if (!t.userId?.dateOfBirth) return false;
+      const birthYear = new Date(t.userId.dateOfBirth).getFullYear();
+      return birthYear === parseInt(filters.yearOfBirth);
+    });
+  }
+
   const total = await Tutor.countDocuments(query);
 
   return { tutors, total, page, limit };
@@ -126,6 +148,7 @@ const searchTutors = async (filters = {}, page = 1, limit = 20) => {
 
 module.exports = {
   findByUserId,
+  findTopTutorsThisMonth,
   findById,
   create,
   update,

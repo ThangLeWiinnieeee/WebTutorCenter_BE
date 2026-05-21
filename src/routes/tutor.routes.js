@@ -12,6 +12,7 @@ router.get("/profile", authMiddleware, tutorController.getTutorProfile);
 // Public routes - lấy danh sách gia sư
 router.get("/active", tutorController.getActiveTutors);
 router.get("/top", tutorController.getTopTutors);
+router.get("/top/month/current", tutorController.getTopTutorsThisMonth);
 router.get("/new", tutorController.getNewTutors);
 router.get("/search", tutorController.searchActiveTutors);
 router.get("/:id", tutorController.getTutorById);

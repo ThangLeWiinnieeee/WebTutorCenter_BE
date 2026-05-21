@@ -123,6 +123,21 @@ const getTopTutors = async (req, res, next) => {
   }
 };
 
+// Lấy top 10 gia sư tháng hiện tại
+const getTopTutorsThisMonth = async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const tutors = await tutorService.getTopTutorsThisMonth(limit);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Lấy danh sách top gia sư tháng này thành công",
+      data: { tutors },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
 // Lấy gia sư mới được approved
 const getNewTutors = async (req, res, next) => {
   try {
@@ -146,6 +161,7 @@ const searchActiveTutors = async (req, res, next) => {
       subject: req.query.subject,
       occupationStatus: req.query.occupationStatus,
       gender: req.query.gender,
+      yearOfBirth: req.query.yearOfBirth,
       province: req.query.province ? parseInt(req.query.province) : null,
       district: req.query.district ? parseInt(req.query.district) : null,
     };
@@ -192,6 +208,7 @@ module.exports = {
   rejectTutor,
   getActiveTutors,
   getTopTutors,
+  getTopTutorsThisMonth,
   getNewTutors,
   searchActiveTutors,
   getTutorById,
