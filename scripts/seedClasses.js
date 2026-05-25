@@ -11,10 +11,10 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 
-const User = require("../src/modules/users/user.model");
-const locationRepository = require("../src/modules/locations/location.repository");
-const classService = require("../src/modules/classes/class.service");
-const { SUBJECTS } = require("../src/modules/classes/constants");
+const User = require("../src/models/user.model");
+const locationRepository = require("../src/repositories/location.repository");
+const classService = require("../src/services/class.service");
+const { SUBJECTS } = require("../src/constants/tutor/tutor");
 
 const SAMPLE_TOPICS = [
   "Củng cố kiến thức nền",
