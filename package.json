@@ -15,6 +15,8 @@
     "seed:update-tutor-fields": "node scripts/seedUpdateTutorFields.js",
     "seed:lookups": "node scripts/seedLookups.js",
     "seed:tutor-demo": "node scripts/seedTutorDemoData.js"
+    "seed:pricing": "node scripts/seedClassPricing.js"
+
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

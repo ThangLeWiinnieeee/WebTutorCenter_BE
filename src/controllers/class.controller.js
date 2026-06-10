@@ -70,10 +70,23 @@ const getSubjects = async (req, res, next) => {
   }
 };
 
+const getPricingConfig = async (req, res, next) => {
+  try {
+    const pricingConfig = await classService.getPricingConfig();
+    return successResponse(res, {
+      message: MESSAGE.PRICING_CONFIG_SUCCESS,
+      data: { pricingConfig },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   quoteClass,
   createClass,
   getClasses,
   getClassDetail,
   getSubjects,
+  getPricingConfig,
 };

@@ -4,12 +4,78 @@ const locationRepository = require("../repositories/location.repository");
 const classRepository = require("../repositories/class.repository");
 const ClassMapper = require("../mappers/class.mapper");
 const { MESSAGE, SUBJECTS } = require("../constants/tutor/tutor");
-const {
-  BASE_FEE_BY_SUBJECT,
-  DEFAULT_BASE_FEE,
-  STUDENT_COUNT_SURCHARGE,
-  SESSION_LENGTH_BASE_MINUTES,
-} = require("../constants/class.pricing");
+const classPricingRepository = require("../repositories/class.pricing.repository");
+
+let cachedPricingConfig = null;
+let pricingConfigCachedAt = 0;
+const PRICING_CONFIG_CACHE_MS = 60_000;
+
+const clearPricingConfigCache = () => {
+  cachedPricingConfig = null;
+  pricingConfigCachedAt = 0;
+};
+
+const loadPricingConfigDoc = async () => {
+  const now = Date.now();
+  if (cachedPricingConfig && now - pricingConfigCachedAt < PRICING_CONFIG_CACHE_MS) {
+    return cachedPricingConfig;
+  }
+
+  const doc = await classPricingRepository.findDefault();
+  if (!doc) {
+    throw new AppError(MESSAGE.PRICING_CONFIG_MISSING, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
+
+  cachedPricingConfig = doc;
+  pricingConfigCachedAt = now;
+  return doc;
+};
+
+const mapBaseFeeBySubject = (baseFeeBySubject = []) => {
+  const map = {};
+  for (const item of baseFeeBySubject) {
+    if (item?.subject) map[item.subject] = item.fee;
+  }
+  return map;
+};
+
+const toPricingConfigResponse = (doc) => {
+  const minutesPerSessionOptions = [...(doc.minutesPerSessionOptions || [])].sort((a, b) => a - b);
+  const defaultMinutesPerSession = minutesPerSessionOptions.includes(doc.sessionLengthBaseMinutes)
+    ? doc.sessionLengthBaseMinutes
+    : minutesPerSessionOptions[0] ?? doc.sessionLengthBaseMinutes;
+
+  return {
+    defaultBaseFee: doc.defaultBaseFee,
+    studentCountSurcharge: doc.studentCountSurcharge,
+    sessionLengthBaseMinutes: doc.sessionLengthBaseMinutes,
+    minutesPerSessionOptions,
+    defaultMinutesPerSession,
+    sessionsPerWeekMin: doc.sessionsPerWeekMin,
+    sessionsPerWeekMax: doc.sessionsPerWeekMax,
+    baseFeeBySubject: mapBaseFeeBySubject(doc.baseFeeBySubject),
+  };
+};
+
+const ensurePricingInputValid = (payload, configDoc) => {
+  const options = configDoc.minutesPerSessionOptions || [];
+  if (!options.includes(payload.minutesPerSession)) {
+    throw new AppError(
+      `Thời lượng mỗi buổi phải là một trong: ${options.join(", ")} phút`,
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
+
+  if (
+    payload.sessionsPerWeek < configDoc.sessionsPerWeekMin ||
+    payload.sessionsPerWeek > configDoc.sessionsPerWeekMax
+  ) {
+    throw new AppError(
+      `Số buổi/tuần phải từ ${configDoc.sessionsPerWeekMin} đến ${configDoc.sessionsPerWeekMax}`,
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
+};
 
 const generateClassCode = async () => {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -31,10 +97,11 @@ const ensureLocationValid = async (provinceCode, districtCode) => {
   }
 };
 
-const calculateFee = (payload) => {
-  const baseFee = BASE_FEE_BY_SUBJECT[payload.subject] || DEFAULT_BASE_FEE;
-  const durationFactor = payload.minutesPerSession / SESSION_LENGTH_BASE_MINUTES;
-  const studentSurcharge = Math.max(0, payload.studentCount - 1) * STUDENT_COUNT_SURCHARGE;
+const calculateFee = (payload, configDoc) => {
+  const feeMap = mapBaseFeeBySubject(configDoc.baseFeeBySubject);
+  const baseFee = feeMap[payload.subject] ?? configDoc.defaultBaseFee;
+  const durationFactor = payload.minutesPerSession / configDoc.sessionLengthBaseMinutes;
+  const studentSurcharge = Math.max(0, payload.studentCount - 1) * configDoc.studentCountSurcharge;
   const feePerSession = Math.round(baseFee * durationFactor + studentSurcharge);
   const feePerMonth = feePerSession * payload.sessionsPerWeek * 4;
   return { feePerSession, feePerMonth };
@@ -42,7 +109,9 @@ const calculateFee = (payload) => {
 
 const buildClassData = async (payload, userId) => {
   await ensureLocationValid(payload.provinceCode, payload.districtCode);
-  const pricing = calculateFee(payload);
+  const configDoc = await loadPricingConfigDoc();
+  ensurePricingInputValid(payload, configDoc);
+  const pricing = calculateFee(payload, configDoc);
   const classCode = await generateClassCode();
   return {
     ...payload,
@@ -55,7 +124,9 @@ const buildClassData = async (payload, userId) => {
 
 const quoteClass = async (payload) => {
   await ensureLocationValid(payload.provinceCode, payload.districtCode);
-  return calculateFee(payload);
+  const configDoc = await loadPricingConfigDoc();
+  ensurePricingInputValid(payload, configDoc);
+  return calculateFee(payload, configDoc);
 };
 
 const createClass = async (payload, userId) => {
@@ -107,10 +178,17 @@ const getSubjects = async () => {
   return SUBJECTS;
 };
 
+const getPricingConfig = async () => {
+  const configDoc = await loadPricingConfigDoc();
+  return toPricingConfigResponse(configDoc);
+};
+
 module.exports = {
   quoteClass,
   createClass,
   getClasses,
   getClassById,
   getSubjects,
+  getPricingConfig,
+  clearPricingConfigCache,
 };
