@@ -138,6 +138,16 @@ const tutorSchema = new mongoose.Schema(
         message: "Phải có ít nhất 1 khung giờ giảng dạy",
       },
     },
+    totalClassesAccepted: {
+      type: Number,
+      default: 0,
+      min: [0, "Số lớp không thể âm"],
+    },
+    classesAcceptedThisMonth: {
+      type: Number,
+      default: 0,
+      min: [0, "Số lớp không thể âm"],
+    },
   },
   {
     timestamps: true,
