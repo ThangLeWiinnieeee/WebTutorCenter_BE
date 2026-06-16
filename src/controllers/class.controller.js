@@ -3,7 +3,7 @@ const classService = require("../services/class.service");
 const { successResponse } = require("../utils/response");
 const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
-const { MESSAGE } = require("../constants/tutor/tutor");
+const MESSAGE = require("../constants/message");
 
 const quoteClass = async (req, res, next) => {
   try {

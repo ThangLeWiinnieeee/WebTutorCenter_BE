@@ -3,9 +3,7 @@ const { deleteAvatarFromCloudinary } = require("../utils/upload");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
 const AppError = require("../utils/AppError");
-const UserMapper = require("../mappers/user.mapper");
-
-
+const { UserMapper } = require("../mappers");
 
 const getUserInfo = async (userId) => {
   const user = await userRepository.findById(userId);
@@ -49,8 +47,4 @@ const updateProfile = async (userId, { fullName, phone, gender, dateOfBirth, ava
   return UserMapper.toDTO(user);
 };
 
-module.exports = {
-  getUserInfo,
-  uploadAvatar,
-  updateProfile,
-};
+module.exports = { getUserInfo, uploadAvatar, updateProfile };

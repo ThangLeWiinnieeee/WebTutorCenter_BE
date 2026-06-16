@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 
 const userController = require("../controllers/user.controller");
-const { updateProfileSchema, validate } = require("../validations/user.validation");
+const { userValidation } = require("../validations");
+const { updateProfileSchema, validate } = userValidation;
 const authMiddleware = require("../middlewares/auth.middleware");
 const { uploadAvatarMiddleware } = require("../utils/upload");
 

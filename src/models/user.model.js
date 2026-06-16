@@ -71,6 +71,15 @@ const userSchema = new mongoose.Schema(
       default: null,
       select: false,
     },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true,

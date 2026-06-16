@@ -2,8 +2,9 @@ const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const locationRepository = require("../repositories/location.repository");
 const classRepository = require("../repositories/class.repository");
-const ClassMapper = require("../mappers/class.mapper");
-const { MESSAGE, SUBJECTS } = require("../constants/tutor/tutor");
+const { ClassMapper } = require("../mappers");
+const MESSAGE = require("../constants/message");
+const { SUBJECTS } = require("../constants/tutor");
 const classPricingRepository = require("../repositories/class.pricing.repository");
 
 let cachedPricingConfig = null;

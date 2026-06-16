@@ -1,5 +1,5 @@
 const SUBJECTS = require("./subject");
-const MESSAGE = require("../message");
+const OCCUPATION_STATUS = require("./occupationStatus");
 
 const TUTOR_STATUS = {
   PENDING: "pending",
@@ -20,6 +20,7 @@ const CLASS_STATUS = {
 
 module.exports = {
   SUBJECTS,
+  OCCUPATION_STATUS,
   TUTOR_STATUS,
   GENDER_OPTIONS,
   TUTOR_LEVEL_OPTIONS,
@@ -27,5 +28,4 @@ module.exports = {
   PHONE_REGEX,
   TIME_REGEX,
   CLASS_STATUS,
-  MESSAGE,
 };
