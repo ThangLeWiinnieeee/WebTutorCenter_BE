@@ -1,7 +1,7 @@
 const notificationRepository = require("../repositories/notification.repository");
 const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
-const NotificationMapper = require("../mappers/notification.mapper");
+const { NotificationMapper } = require("../mappers");
 
 const createNotification = async ({ userId, type, message }) => {
   const notification = await notificationRepository.create({ userId, type, message });

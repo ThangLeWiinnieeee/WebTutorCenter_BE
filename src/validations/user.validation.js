@@ -15,21 +15,14 @@ const updateProfileSchema = Joi.object({
       "any.required": "Số điện thoại là bắt buộc",
       "string.empty": "Số điện thoại là bắt buộc",
     }),
-  gender: Joi.string()
-    .valid("male", "female", "other")
-    .allow(null, "")
-    .optional()
-    .messages({
-      "any.only": "Giới tính không hợp lệ",
-    }),
-  dateOfBirth: Joi.date()
-    .max("now")
-    .required()
-    .messages({
-      "date.base": "Ngày sinh không hợp lệ",
-      "date.max": "Ngày sinh không được lớn hơn thời gian hiện tại",
-      "any.required": "Ngày sinh là bắt buộc",
-    }),
+  gender: Joi.string().valid("male", "female", "other").allow(null, "").optional().messages({
+    "any.only": "Giới tính không hợp lệ",
+  }),
+  dateOfBirth: Joi.date().max("now").required().messages({
+    "date.base": "Ngày sinh không hợp lệ",
+    "date.max": "Ngày sinh không được lớn hơn thời gian hiện tại",
+    "any.required": "Ngày sinh là bắt buộc",
+  }),
 });
 
 const validate = (schema) => (req, res, next) => {
@@ -42,7 +35,4 @@ const validate = (schema) => (req, res, next) => {
   next();
 };
 
-module.exports = {
-  updateProfileSchema,
-  validate,
-};
+module.exports = { updateProfileSchema, validate };

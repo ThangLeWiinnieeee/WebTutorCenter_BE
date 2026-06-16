@@ -88,6 +88,13 @@ const forgotPasswordSchema = Joi.object({
   }),
 });
 
+const googleLoginSchema = Joi.object({
+  credential: Joi.string().required().messages({
+    "string.empty": "Không nhận được mã xác thực Google",
+    "any.required": "Không nhận được mã xác thực Google",
+  }),
+});
+
 const verifyForgotPasswordOtpSchema = Joi.object({
   email: Joi.string().email().required().messages({
     "string.empty": "Email không được để trống",
@@ -135,6 +142,7 @@ module.exports = {
   verifyOtpSchema,
   resendOtpSchema,
   forgotPasswordSchema,
+  googleLoginSchema,
   verifyForgotPasswordOtpSchema,
   resetPasswordSchema,
   validate,

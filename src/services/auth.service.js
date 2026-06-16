@@ -10,7 +10,7 @@ const HTTP_STATUS = require("../constants/status");
 const ACCOUNT_TYPE = require("../constants/accountType");
 const OTP_TYPE = require("../constants/otpType");
 const AppError = require("../utils/AppError");
-const UserMapper = require("../mappers/user.mapper");
+const { UserMapper } = require("../mappers");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -182,9 +182,13 @@ const resetPassword = async ({ resetToken, newPassword }) => {
     throw new AppError(MESSAGE.RESET_TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
   }
 
-  const user = await userRepository.findById(decoded.id);
+  const user = await userRepository.findById(decoded.id, true);
   if (!user) {
     throw new AppError(MESSAGE.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  }
+
+  if (typeof user.password === "string" && await comparePassword(newPassword, user.password)) {
+    throw new AppError(MESSAGE.RESET_PASSWORD_SAME_AS_OLD, HTTP_STATUS.BAD_REQUEST);
   }
 
   const hashedPassword = await hashPassword(newPassword);

@@ -14,7 +14,6 @@ const handleError = (error, res, next) => {
 const getUserInfo = async (req, res, next) => {
   try {
     const user = await userService.getUserInfo(req.user.id);
-
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
       message: MESSAGE.USER_INFO_SUCCESS,
@@ -30,10 +29,8 @@ const uploadAvatar = async (req, res, next) => {
     if (!req.file) {
       throw new AppError(MESSAGE.UPLOAD_AVATAR_FAILED, HTTP_STATUS.BAD_REQUEST);
     }
-
     const avatarUrl = req.file.path;
     const user = await userService.uploadAvatar(req.user.id, avatarUrl);
-
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
       message: MESSAGE.UPLOAD_AVATAR_SUCCESS,
@@ -47,7 +44,6 @@ const uploadAvatar = async (req, res, next) => {
 const updateProfile = async (req, res, next) => {
   try {
     const user = await userService.updateProfile(req.user.id, req.body);
-
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
       message: MESSAGE.UPDATE_PROFILE_SUCCESS,
@@ -58,8 +54,4 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = {
-  getUserInfo,
-  uploadAvatar,
-  updateProfile,
-};
+module.exports = { getUserInfo, uploadAvatar, updateProfile };

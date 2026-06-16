@@ -1,12 +1,13 @@
 const express = require("express");
 const classController = require("../controllers/class.controller");
+const { classValidation } = require("../validations");
 const {
   quoteClassSchema,
   createClassSchema,
   listClassQuerySchema,
   validateBody,
   validateQuery,
-} = require("../validations/class.validation");
+} = classValidation;
 const authMiddleware = require("../middlewares/auth.middleware");
 
 const router = express.Router();

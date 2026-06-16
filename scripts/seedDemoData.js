@@ -236,11 +236,11 @@ const PENDING_TUTOR_SEEDS = [
     phone: "0912000006",
     gender: "male",
     dateOfBirth: "1997-05-06",
-    subjects: ["Kế toán", "Kinh tế"],
+    subjects: ["Kinh tế"],
     occupationStatus: OCCUPATION_STATUS.GRADUATED,
     schoolName: "Đại học Kinh tế",
     graduationYear: 2019,
-    bio: "Hỗ trợ sinh viên và học sinh định hướng ngành kinh tế, giải thích dễ hiểu các kiến thức kế toán nền tảng.",
+    bio: "Hỗ trợ sinh viên và học sinh định hướng ngành kinh tế, giải thích dễ hiểu các kiến thức kinh tế nền tảng.",
     availability: [
       { day: "Wed", startTime: "19:00", endTime: "21:00" },
       { day: "Sun", startTime: "16:00", endTime: "18:00" },

@@ -29,7 +29,7 @@ const HARDCODED_SUBJECTS = [
 
 const loadSubjects = () => {
   try {
-    const subjectFilePath = path.resolve(__dirname, "../../../../subject.json");
+    const subjectFilePath = path.resolve(__dirname, "../../../subject.json");
     const raw = fs.readFileSync(subjectFilePath, "utf-8");
     const parsed = JSON.parse(raw);
     const subjectsFromFile = Array.isArray(parsed.subject)

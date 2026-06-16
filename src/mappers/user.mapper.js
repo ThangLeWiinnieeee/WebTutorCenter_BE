@@ -17,9 +17,15 @@ class UserMapper {
       isActive: user.isActive,
       isVerified: user.isVerified,
       phoneActivated: user.phoneActivated,
+      deletedAt: user.deletedAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  static toDTOs(users) {
+    if (!Array.isArray(users)) return [];
+    return users.map((user) => this.toDTO(user));
   }
 }
 

@@ -35,6 +35,7 @@ const MESSAGE = {
   RESET_PASSWORD_SUCCESS: "Đặt lại mật khẩu thành công",
   RESET_TOKEN_INVALID: "Phiên đặt lại mật khẩu không hợp lệ hoặc đã hết hạn",
   ACCOUNT_NOT_CHANGE_PASSWORD: "Tài khoản này không thể đổi mật khẩu (đăng nhập qua Google)",
+  RESET_PASSWORD_SAME_AS_OLD: "Mật khẩu mới không được trùng với mật khẩu cũ",
 
   // Token
   TOKEN_MISSING: "Không tìm thấy token xác thực",
@@ -51,6 +52,14 @@ const MESSAGE = {
   TUTOR_NOT_FOUND: "Không tìm thấy thông tin gia sư",
   TUTOR_GET_SUCCESS: "Lấy thông tin gia sư thành công",
   TUTOR_UPDATE_SUCCESS: "Cập nhật thông tin gia sư thành công",
+
+  // Admin
+  ADMIN_LIST_USERS_SUCCESS: "Lấy danh sách người dùng thành công",
+  ADMIN_UPDATE_USER_SUCCESS: "Cập nhật người dùng thành công",
+  ADMIN_UPDATE_USER_STATUS_SUCCESS: "Cập nhật trạng thái người dùng thành công",
+  ADMIN_DELETE_USER_SUCCESS: "Xóa người dùng thành công",
+  ADMIN_SELF_DEACTIVATE: "Không thể vô hiệu hóa chính tài khoản đang đăng nhập",
+  ADMIN_SELF_DELETE: "Không thể xóa chính tài khoản đang đăng nhập",
 
   // Server
   INTERNAL_SERVER_ERROR: "Lỗi máy chủ nội bộ",

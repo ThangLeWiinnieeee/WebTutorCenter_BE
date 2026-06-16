@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { SUBJECTS, GENDER_OPTIONS, TUTOR_LEVEL_OPTIONS, DAYS_OF_WEEK, PHONE_REGEX } = require("../constants/tutor/tutor");
+const { SUBJECTS, GENDER_OPTIONS, TUTOR_LEVEL_OPTIONS, DAYS_OF_WEEK, PHONE_REGEX } = require("../constants/tutor");
 
 const availabilitySlotSchema = new mongoose.Schema(
   {
