@@ -90,9 +90,10 @@ const searchTutors = async (filters = {}, page = 1, limit = 20) => {
   const skip = (page - 1) * limit;
   const query = { status: TUTOR_STATUS.APPROVED };
 
-  // Lọc theo subject
+  // Lọc theo subject (không phân biệt hoa/thường, khớp chính xác cả chuỗi)
   if (filters.subject) {
-    query.subjects = filters.subject;
+    const escaped = String(filters.subject).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.subjects = { $regex: `^${escaped}$`, $options: "i" };
   }
 
   // Lọc theo occupationStatus

@@ -31,6 +31,8 @@ class TutorMapper {
       graduationYear: tutor.graduationYear,
       bio: tutor.bio,
       availability: tutor.availability,
+      totalClassesAccepted: tutor.totalClassesAccepted ?? 0,
+      classesAcceptedThisMonth: tutor.classesAcceptedThisMonth ?? 0,
       status: tutor.status,
       rejectionReason: tutor.rejectionReason,
       createdAt: tutor.createdAt,
