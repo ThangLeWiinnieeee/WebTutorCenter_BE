@@ -92,8 +92,7 @@ const getTutorById = async (tutorId) => {
   if (tutor.status !== TUTOR_STATUS.APPROVED) {
     throw new AppError(MESSAGE.TUTOR_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
-  const user = await userRepository.findById(tutor.userId);
-  return await TutorMapper.toDTO(tutor, user);
+  return await TutorMapper.toDTO(tutor, null);
 };
 
 module.exports = {
