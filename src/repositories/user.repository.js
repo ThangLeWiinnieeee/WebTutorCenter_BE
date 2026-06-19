@@ -84,6 +84,10 @@ const softDeleteByAdmin = async (userId, adminUserId) => {
   );
 };
 
+const findAllByRole = async (role) => {
+  return await User.find({ role, deletedAt: null, isActive: true }).lean();
+};
+
 module.exports = {
   findByEmail,
   findById,
@@ -98,4 +102,5 @@ module.exports = {
   updateStatus,
   updateByAdmin,
   softDeleteByAdmin,
+  findAllByRole,
 };

@@ -80,6 +80,19 @@ const rejectTutorSchema = Joi.object({
   }),
 });
 
+const rejectClassApplicationSchema = Joi.object({
+  rejectionReason: Joi.string().trim().min(5).max(500).required().messages({
+    "string.empty": "Lý do từ chối không được để trống",
+    "string.min": "Lý do từ chối phải có ít nhất 5 ký tự",
+    "string.max": "Lý do từ chối không được vượt quá 500 ký tự",
+    "any.required": "Lý do từ chối là bắt buộc",
+  }),
+});
+
+const adminListClassApplicationsQuerySchema = Joi.object({
+  status: Joi.string().valid("pending", "approved", "rejected", "all").default("pending"),
+});
+
 module.exports = {
   validate,
   validateQuery,
@@ -87,4 +100,6 @@ module.exports = {
   adminUpdateUserSchema,
   adminUpdateUserStatusSchema,
   rejectTutorSchema,
+  rejectClassApplicationSchema,
+  adminListClassApplicationsQuerySchema,
 };
