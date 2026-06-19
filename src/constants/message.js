@@ -65,6 +65,16 @@ const MESSAGE = {
   INTERNAL_SERVER_ERROR: "Lỗi máy chủ nội bộ",
   FORBIDDEN: "Bạn không có quyền thực hiện hành động này",
 
+  // Class Application
+  CLASS_APPLICATION_APPLY_SUCCESS: "Yêu cầu nhận lớp đã được gửi, vui lòng chờ admin xét duyệt",
+  CLASS_APPLICATION_ALREADY_EXISTS: "Bạn đã gửi yêu cầu nhận lớp này trước đó",
+  CLASS_APPLICATION_NOT_FOUND: "Không tìm thấy đơn đăng ký nhận lớp",
+  CLASS_APPLICATION_NOT_PENDING: "Đơn đăng ký này không ở trạng thái chờ duyệt",
+  CLASS_APPLICATION_LIST_SUCCESS: "Lấy danh sách đơn đăng ký nhận lớp thành công",
+  CLASS_APPLICATION_STATS_SUCCESS: "Lấy thống kê đơn đăng ký nhận lớp thành công",
+  CLASS_APPLICATION_APPROVE_SUCCESS: "Đã duyệt gia sư cho lớp thành công",
+  CLASS_APPLICATION_REJECT_SUCCESS: "Đã từ chối đơn đăng ký nhận lớp",
+
   // Class
   QUOTE_SUCCESS: "Tính học phí lớp mới thành công",
   CREATE_SUCCESS: "Đăng lớp mới thành công",

@@ -119,6 +119,60 @@ const rejectTutor = async (req, res, next) => {
   }
 };
 
+// ──────────────────────────── Class application admin ────────────────────────────
+
+const getClassApplications = async (req, res, next) => {
+  try {
+    const applications = await adminService.getClassApplications(req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICATION_LIST_SUCCESS,
+      data: { applications },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const getClassApplicationStats = async (req, res, next) => {
+  try {
+    const stats = await adminService.getClassApplicationStats();
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Lấy thống kê đơn đăng ký thành công",
+      data: { stats },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const approveClassApplication = async (req, res, next) => {
+  try {
+    const application = await adminService.approveClassApplication(req.params.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICATION_APPROVE_SUCCESS,
+      data: { application },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const rejectClassApplication = async (req, res, next) => {
+  try {
+    const application = await adminService.rejectClassApplication(req.params.id, req.body.rejectionReason);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICATION_REJECT_SUCCESS,
+      data: { application },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
 module.exports = {
   getAdminUsers,
   updateAdminUser,
@@ -128,4 +182,8 @@ module.exports = {
   getPendingTutors,
   approveTutor,
   rejectTutor,
+  getClassApplications,
+  getClassApplicationStats,
+  approveClassApplication,
+  rejectClassApplication,
 };

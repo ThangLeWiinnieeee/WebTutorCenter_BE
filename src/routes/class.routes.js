@@ -1,5 +1,6 @@
 const express = require("express");
 const classController = require("../controllers/class.controller");
+const classApplicationController = require("../controllers/class.application.controller");
 const { classValidation } = require("../validations");
 const {
   quoteClassSchema,
@@ -9,6 +10,7 @@ const {
   validateQuery,
 } = classValidation;
 const authMiddleware = require("../middlewares/auth.middleware");
+const roleMiddleware = require("../middlewares/role.middleware");
 
 const router = express.Router();
 
@@ -17,6 +19,7 @@ router.post("/", authMiddleware, validateBody(createClassSchema), classControlle
 router.get("/subjects", classController.getSubjects);
 router.get("/pricing-config", classController.getPricingConfig);
 router.get("/", validateQuery(listClassQuerySchema), classController.getClasses);
+router.post("/:id/apply", authMiddleware, roleMiddleware("tutor"), classApplicationController.applyForClass);
 router.get("/:id", classController.getClassDetail);
 
 module.exports = router;

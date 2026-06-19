@@ -1,13 +1,15 @@
 const userRepository = require("../repositories/user.repository");
 const tutorRepository = require("../repositories/tutor.repository");
+const classApplicationRepository = require("../repositories/class.application.repository");
 const notificationService = require("./notification.service");
 const { NOTIFICATION_TYPES } = require("../models/notification.model");
+const { CLASS_APPLICATION_STATUS } = require("../models/class.application.model");
 const AppError = require("../utils/AppError");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
 const ROLES = require("../constants/role");
 const { TUTOR_STATUS } = require("../constants/tutor");
-const { UserMapper, TutorMapper } = require("../mappers");
+const { UserMapper, TutorMapper, ClassApplicationMapper } = require("../mappers");
 
 // ──────────────────────────── User admin ────────────────────────────
 
@@ -116,12 +118,78 @@ const rejectTutor = async (tutorId, rejectionReason) => {
 };
 
 const getDashboardStats = async () => {
-  const [pendingCount, approvedCount, rejectedCount] = await Promise.all([
+  const [pendingCount, approvedCount, rejectedCount, pendingClassApplicationsCount] = await Promise.all([
     tutorRepository.countByStatus(TUTOR_STATUS.PENDING),
     tutorRepository.countByStatus(TUTOR_STATUS.APPROVED),
     tutorRepository.countByStatus(TUTOR_STATUS.REJECTED),
+    classApplicationRepository.countPending(),
   ]);
-  return { pendingCount, approvedCount, rejectedCount };
+  return { pendingCount, approvedCount, rejectedCount, pendingClassApplicationsCount };
+};
+
+// ──────────────────────────── Class application admin ────────────────────────────
+
+const getClassApplications = async (query = {}) => {
+  const applications = await classApplicationRepository.findByStatus(query.status);
+  return ClassApplicationMapper.toDTOs(applications);
+};
+
+const getClassApplicationStats = async () => {
+  return await classApplicationRepository.countAll();
+};
+
+const approveClassApplication = async (applicationId) => {
+  const application = await classApplicationRepository.findById(applicationId);
+  if (!application) throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  if (application.status !== CLASS_APPLICATION_STATUS.PENDING) {
+    throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_PENDING, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const updated = await classApplicationRepository.update(applicationId, {
+    status: CLASS_APPLICATION_STATUS.APPROVED,
+  });
+
+  const tutor = application.tutorId;
+  const tutorUserId = tutor.userId?._id ?? tutor.userId;
+  const classItem = application.classId;
+
+  await Promise.all([
+    notificationService.createNotification({
+      userId: tutorUserId,
+      type: NOTIFICATION_TYPES.CLASS_APPLICATION_APPROVED,
+      message: `Chúc mừng! Bạn đã được duyệt nhận lớp ${classItem.classCode} - Môn: ${classItem.subject}. Admin sẽ liên hệ sớm để xác nhận thông tin.`,
+    }),
+    tutorRepository.update(tutor._id, {
+      $inc: { totalClassesAccepted: 1, classesAcceptedThisMonth: 1 },
+    }),
+  ]);
+
+  return ClassApplicationMapper.toDTO(updated);
+};
+
+const rejectClassApplication = async (applicationId, rejectionReason) => {
+  const application = await classApplicationRepository.findById(applicationId);
+  if (!application) throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  if (application.status !== CLASS_APPLICATION_STATUS.PENDING) {
+    throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_PENDING, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const updated = await classApplicationRepository.update(applicationId, {
+    status: CLASS_APPLICATION_STATUS.REJECTED,
+    rejectionReason,
+  });
+
+  const tutor = application.tutorId;
+  const tutorUserId = tutor.userId?._id ?? tutor.userId;
+  const classItem = application.classId;
+
+  await notificationService.createNotification({
+    userId: tutorUserId,
+    type: NOTIFICATION_TYPES.CLASS_APPLICATION_REJECTED,
+    message: `Yêu cầu nhận lớp ${classItem.classCode} (Môn: ${classItem.subject}) của bạn đã bị từ chối. Lý do: ${rejectionReason}`,
+  });
+
+  return ClassApplicationMapper.toDTO(updated);
 };
 
 module.exports = {
@@ -133,4 +201,8 @@ module.exports = {
   approveTutor,
   rejectTutor,
   getDashboardStats,
+  getClassApplications,
+  getClassApplicationStats,
+  approveClassApplication,
+  rejectClassApplication,
 };

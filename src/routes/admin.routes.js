@@ -11,6 +11,8 @@ const {
   adminUpdateUserSchema,
   adminUpdateUserStatusSchema,
   rejectTutorSchema,
+  rejectClassApplicationSchema,
+  adminListClassApplicationsQuerySchema,
 } = require("../validations/admin.validation");
 
 // Áp dụng auth + admin role check cho tất cả admin routes
@@ -27,5 +29,11 @@ router.get("/tutors/stats", adminController.getDashboardStats);
 router.get("/tutors/pending", adminController.getPendingTutors);
 router.patch("/tutors/:id/approve", adminController.approveTutor);
 router.patch("/tutors/:id/reject", validate(rejectTutorSchema), adminController.rejectTutor);
+
+// ──────────────────────────── Class application routes (/admin/class-applications) ────────────────────────────
+router.get("/class-applications/stats", adminController.getClassApplicationStats);
+router.get("/class-applications", validateQuery(adminListClassApplicationsQuerySchema), adminController.getClassApplications);
+router.patch("/class-applications/:id/approve", adminController.approveClassApplication);
+router.patch("/class-applications/:id/reject", validate(rejectClassApplicationSchema), adminController.rejectClassApplication);
 
 module.exports = router;
