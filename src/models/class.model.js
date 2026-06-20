@@ -90,10 +90,18 @@ const classSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    provinceName: {
+      type: String,
+      trim: true,
+    },
     districtCode: {
       type: Number,
       required: true,
       index: true,
+    },
+    districtName: {
+      type: String,
+      trim: true,
     },
     locationLabel: {
       type: String,

@@ -23,15 +23,32 @@ class ClassApplicationMapper {
         feePerMonth: classItem.feePerMonth,
         sessionsPerWeek: classItem.sessionsPerWeek,
         minutesPerSession: classItem.minutesPerSession,
+        contactPhone: classItem.contactPhone,
+        description: classItem.description,
+        studentGender: classItem.studentGender,
+        studentCount: classItem.studentCount,
+        startDate: classItem.startDate,
+        availabilitySlots: classItem.availabilitySlots ?? [],
+        tutorGenderPref: classItem.tutorGenderPref,
+        tutorLevelPref: classItem.tutorLevelPref,
+        provinceCode: classItem.provinceCode,
+        districtCode: classItem.districtCode,
+        provinceName: classItem.provinceName,
+        districtName: classItem.districtName,
       },
       tutor: {
         id: tutor._id,
         fullName: tutorUser.fullName ?? null,
         email: tutorUser.email ?? null,
         avatar: tutorUser.avatar ?? null,
+        gender: tutorUser.gender ?? null,
         subjects: tutor.subjects ?? [],
         phone: tutor.phone ?? null,
         occupationStatus: tutor.occupationStatus ?? null,
+        schoolName: tutor.schoolName ?? null,
+        graduationYear: tutor.graduationYear ?? null,
+        bio: tutor.bio ?? null,
+        availability: tutor.availability ?? [],
       },
     };
   }
@@ -58,7 +75,9 @@ class ClassApplicationMapper {
       classCode: classItem.classCode,
       subject: classItem.subject,
       summary: classItem.summary,
-      locationLabel: classItem.locationLabel,
+      locationLabel: isUnlocked
+        ? classItem.locationLabel
+        : `${classItem.districtName || ""}, ${classItem.provinceName || ""}`.replace(/^, /, ""),
       feePerSession: classItem.feePerSession,
       feePerMonth: classItem.feePerMonth,
       sessionsPerWeek: classItem.sessionsPerWeek,
@@ -68,6 +87,8 @@ class ClassApplicationMapper {
       startDate: classItem.startDate,
       tutorGenderPref: classItem.tutorGenderPref,
       tutorLevelPref: classItem.tutorLevelPref,
+      provinceName: classItem.provinceName,
+      districtName: classItem.districtName,
       createdAt: classItem.createdAt,
     };
 
@@ -78,6 +99,7 @@ class ClassApplicationMapper {
           availabilitySlots: classItem.availabilitySlots ?? [],
           provinceCode: classItem.provinceCode,
           districtCode: classItem.districtCode,
+          locationLabel: classItem.locationLabel,
         }
       : {};
 

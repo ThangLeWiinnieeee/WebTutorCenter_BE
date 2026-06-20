@@ -18,23 +18,11 @@ const availabilitySlotSchema = new mongoose.Schema(
         message: "Ngày không hợp lệ, phải là Mon–Sun",
       },
     },
-    startTime: {
-      type: String,
-      required: [true, "Giờ bắt đầu là bắt buộc"],
-      match: [TIME_REGEX, "Giờ bắt đầu phải theo định dạng HH:mm"],
-    },
-    endTime: {
-      type: String,
-      required: [true, "Giờ kết thúc là bắt buộc"],
-      match: [TIME_REGEX, "Giờ kết thúc phải theo định dạng HH:mm"],
-      // HH:mm 24h zero-padded → so sánh lexicographic = so sánh thời gian
-      validate: {
-        validator: function (val) {
-          if (!this.startTime || !val) return true;
-          return val > this.startTime;
-        },
-        message: "Giờ kết thúc phải sau giờ bắt đầu",
-      },
+    hour: {
+      type: Number,
+      required: [true, "Khung giờ là bắt buộc"],
+      min: [0, "Khung giờ phải từ 0 đến 23"],
+      max: [23, "Khung giờ phải từ 0 đến 23"],
     },
   },
   { _id: false }

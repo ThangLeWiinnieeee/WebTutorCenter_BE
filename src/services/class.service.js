@@ -111,7 +111,15 @@ const calculateFee = (payload, configDoc) => {
 };
 
 const buildClassData = async (payload, userId) => {
-  await ensureLocationValid(payload.provinceCode, payload.districtCode);
+  const [province, district] = await Promise.all([
+    locationRepository.findProvinceByCode(payload.provinceCode),
+    locationRepository.findDistrictByCode(payload.districtCode),
+  ]);
+
+  if (!province || !district || district.provinceCode !== payload.provinceCode) {
+    throw new AppError(MESSAGE.INVALID_AREA, HTTP_STATUS.BAD_REQUEST);
+  }
+
   const configDoc = await loadPricingConfigDoc();
   ensurePricingInputValid(payload, configDoc);
   const pricing = calculateFee(payload, configDoc);
@@ -120,6 +128,8 @@ const buildClassData = async (payload, userId) => {
     ...payload,
     promoCode: payload.promoCode || null,
     classCode,
+    provinceName: province.name,
+    districtName: district.name,
     createdBy: userId,
     ...pricing,
   };
@@ -132,10 +142,59 @@ const quoteClass = async (payload) => {
   return calculateFee(payload, configDoc);
 };
 
+const checkCanViewSensitiveDetails = async (classItem, user) => {
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  const createdById = classItem.createdBy?._id || classItem.createdBy;
+  if (createdById && createdById.toString() === user.id) return true;
+
+  // Check if user is a tutor with an approved application for this class
+  const tutor = await tutorRepository.findByUserId(user.id);
+  if (tutor) {
+    const approvedApp = await classApplicationRepository.findByClassAndTutor(classItem._id || classItem.id, tutor._id);
+    if (approvedApp && approvedApp.status === "approved") return true;
+  }
+
+  return false;
+};
+
+const maskClassItem = async (classItem, user) => {
+  const isArray = Array.isArray(classItem);
+  const items = isArray ? classItem : [classItem];
+  const maskedList = [];
+
+  for (const item of items) {
+    const dto = ClassMapper.toDTO(item);
+    if (!dto) {
+      maskedList.push(null);
+      continue;
+    }
+
+    // Dynamic fallback for provinceName and districtName for older documents
+    if (!dto.provinceName || !dto.districtName) {
+      const [prov, dist] = await Promise.all([
+        locationRepository.findProvinceByCode(dto.provinceCode),
+        locationRepository.findDistrictByCode(dto.districtCode),
+      ]);
+      dto.provinceName = prov?.name || "";
+      dto.districtName = dist?.name || "";
+    }
+
+    const canView = await checkCanViewSensitiveDetails(item, user);
+    if (!canView) {
+      dto.contactPhone = null;
+      dto.locationLabel = `${dto.districtName}, ${dto.provinceName}`;
+    }
+    maskedList.push(dto);
+  }
+
+  return isArray ? maskedList : maskedList[0];
+};
+
 const createClass = async (payload, userId) => {
   const data = await buildClassData(payload, userId);
   const created = await classRepository.create(data);
-  return ClassMapper.toDTO(created);
+  return await maskClassItem(created, { id: userId });
 };
 
 const normalizeSubjectFilter = (subject) => {
@@ -145,7 +204,7 @@ const normalizeSubjectFilter = (subject) => {
   return matchedSubject || subject.trim();
 };
 
-const getClasses = async (query) => {
+const getClasses = async (query, user) => {
   const filters = {};
   if (query.subject) filters.subject = normalizeSubjectFilter(query.subject);
   if (query.provinceCode) filters.provinceCode = query.provinceCode;
@@ -156,8 +215,9 @@ const getClasses = async (query) => {
   const { classes, totalItems } = await classRepository.findMany(filters, { page, limit });
   const totalPages = Math.max(1, Math.ceil(totalItems / limit));
 
+  const maskedClasses = await maskClassItem(classes, user);
   return {
-    classes: ClassMapper.toDTOs(classes),
+    classes: maskedClasses,
     pagination: {
       page,
       limit,
@@ -208,8 +268,9 @@ const getClassFeedForTutor = async (userId, query = {}) => {
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+  const maskedClasses = await maskClassItem(classes, { id: userId, role: "tutor" });
   return {
-    classes: ClassMapper.toDTOs(classes),
+    classes: maskedClasses,
     subjects,
     newCount,
     pagination: {
@@ -229,8 +290,9 @@ const getMyPostedClasses = async (userId, query = {}) => {
   const { classes, totalItems } = await classRepository.findByCreatedBy(userId, { page, limit });
   const totalPages = Math.max(1, Math.ceil(totalItems / limit));
 
+  const maskedClasses = await maskClassItem(classes, { id: userId });
   return {
-    classes: ClassMapper.toDTOs(classes),
+    classes: maskedClasses,
     pagination: {
       page,
       limit,
@@ -242,12 +304,12 @@ const getMyPostedClasses = async (userId, query = {}) => {
   };
 };
 
-const getClassById = async (id) => {
+const getClassById = async (id, user) => {
   const classItem = await classRepository.findById(id);
   if (!classItem) {
     throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
-  return ClassMapper.toDTO(classItem);
+  return await maskClassItem(classItem, user);
 };
 
 const getSubjects = async () => {
