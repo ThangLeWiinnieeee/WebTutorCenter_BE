@@ -20,6 +20,9 @@ router.get("/subjects", classController.getSubjects);
 router.get("/pricing-config", classController.getPricingConfig);
 router.get("/", validateQuery(listClassQuerySchema), classController.getClasses);
 router.post("/:id/apply", authMiddleware, roleMiddleware("tutor"), classApplicationController.applyForClass);
+router.get("/mine", authMiddleware, roleMiddleware("tutor"), classApplicationController.getMyApplications);
+router.get("/feed", authMiddleware, roleMiddleware("tutor"), classController.getClassFeed);
+router.get("/my-posts", authMiddleware, classController.getMyPosts);
 router.get("/:id", classController.getClassDetail);
 
 module.exports = router;

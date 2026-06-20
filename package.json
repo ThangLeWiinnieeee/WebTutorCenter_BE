@@ -9,7 +9,7 @@
     "seed:tutors": "node scripts/seedDemoData.js tutors",
     "seed:schools": "node scripts/seedSchools.js",
     "seed:demo": "node scripts/seedDemoData.js all",
-    "dev": "node --watch server.js",
+    "dev": "nodemon server.js",
     "seed:locations": "node scripts/seedLocations.js",
     "seed:classes": "node scripts/seedClasses.js",
     "seed:update-tutor-fields": "node scripts/seedUpdateTutorFields.js",

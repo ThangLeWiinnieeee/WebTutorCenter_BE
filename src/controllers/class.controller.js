@@ -42,6 +42,30 @@ const getClasses = async (req, res, next) => {
   }
 };
 
+const getClassFeed = async (req, res, next) => {
+  try {
+    const result = await classService.getClassFeedForTutor(req.user.id, req.query);
+    return successResponse(res, {
+      message: MESSAGE.CLASS_FEED_SUCCESS,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getMyPosts = async (req, res, next) => {
+  try {
+    const result = await classService.getMyPostedClasses(req.user.id, req.query);
+    return successResponse(res, {
+      message: MESSAGE.MY_POSTS_SUCCESS,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getClassDetail = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -86,6 +110,8 @@ module.exports = {
   quoteClass,
   createClass,
   getClasses,
+  getClassFeed,
+  getMyPosts,
   getClassDetail,
   getSubjects,
   getPricingConfig,

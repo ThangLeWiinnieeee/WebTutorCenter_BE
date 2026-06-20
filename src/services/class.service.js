@@ -2,6 +2,8 @@ const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const locationRepository = require("../repositories/location.repository");
 const classRepository = require("../repositories/class.repository");
+const tutorRepository = require("../repositories/tutor.repository");
+const classApplicationRepository = require("../repositories/class.application.repository");
 const { ClassMapper } = require("../mappers");
 const MESSAGE = require("../constants/message");
 const { SUBJECTS } = require("../constants/tutor");
@@ -167,6 +169,79 @@ const getClasses = async (query) => {
   };
 };
 
+const FEED_NEW_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 giờ
+
+// Feed bài đăng tuyển gia sư theo đúng môn mà gia sư đăng ký dạy.
+// Dùng truy vấn theo subject ($in tutor.subjects) thay vì tạo thông báo cho từng
+// gia sư — đảm bảo mở rộng tốt khi có hàng nghìn bài đăng cùng môn.
+const getClassFeedForTutor = async (userId, query = {}) => {
+  const tutor = await tutorRepository.findByUserId(userId);
+  if (!tutor) throw new AppError(MESSAGE.TUTOR_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+
+  const subjects = Array.isArray(tutor.subjects) ? tutor.subjects : [];
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+
+  const emptyPagination = {
+    page,
+    limit,
+    totalItems: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPrevPage: false,
+  };
+
+  if (subjects.length === 0) {
+    return { classes: [], subjects: [], newCount: 0, pagination: emptyPagination };
+  }
+
+  // Cho phép lọc theo 1 môn cụ thể, nhưng môn đó phải nằm trong các môn gia sư dạy
+  const subjectFilter = query.subject && subjects.includes(query.subject) ? query.subject : null;
+  const filterSubjects = subjectFilter ? [subjectFilter] : subjects;
+
+  // Ẩn các bài đăng đã có gia sư nhận (đơn pending/approved)
+  const excludeIds = await classApplicationRepository.distinctActiveClassIds();
+  const since = new Date(Date.now() - FEED_NEW_WINDOW_MS);
+  const [{ classes, totalItems }, newCount] = await Promise.all([
+    classRepository.findBySubjects(filterSubjects, { page, limit, excludeIds }),
+    classRepository.countBySubjectsSince(subjects, since, excludeIds),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+  return {
+    classes: ClassMapper.toDTOs(classes),
+    subjects,
+    newCount,
+    pagination: {
+      page,
+      limit,
+      totalItems,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    },
+  };
+};
+
+const getMyPostedClasses = async (userId, query = {}) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const { classes, totalItems } = await classRepository.findByCreatedBy(userId, { page, limit });
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+
+  return {
+    classes: ClassMapper.toDTOs(classes),
+    pagination: {
+      page,
+      limit,
+      totalItems,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    },
+  };
+};
+
 const getClassById = async (id) => {
   const classItem = await classRepository.findById(id);
   if (!classItem) {
@@ -188,6 +263,8 @@ module.exports = {
   quoteClass,
   createClass,
   getClasses,
+  getClassFeedForTutor,
+  getMyPostedClasses,
   getClassById,
   getSubjects,
   getPricingConfig,
