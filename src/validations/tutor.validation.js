@@ -16,22 +16,11 @@ const availabilitySlotSchema = Joi.object({
       "any.required": "Ngày trong tuần là bắt buộc",
       "string.empty": "Ngày trong tuần không được để trống",
     }),
-  startTime: Joi.string().pattern(TIME_REGEX).required().messages({
-    "string.pattern.base": "Giờ bắt đầu phải theo định dạng HH:mm",
-    "any.required": "Giờ bắt đầu là bắt buộc",
-    "string.empty": "Giờ bắt đầu không được để trống",
+  hour: Joi.number().integer().min(0).max(23).required().messages({
+    "number.min": "Khung giờ phải từ 0 đến 23",
+    "number.max": "Khung giờ phải từ 0 đến 23",
+    "any.required": "Khung giờ là bắt buộc",
   }),
-  endTime: Joi.string().pattern(TIME_REGEX).required().messages({
-    "string.pattern.base": "Giờ kết thúc phải theo định dạng HH:mm",
-    "any.required": "Giờ kết thúc là bắt buộc",
-    "string.empty": "Giờ kết thúc không được để trống",
-  }),
-}).custom((value, helpers) => {
-  // [MEDIUM] HH:mm zero-padded → lexicographic compare = chronological compare
-  if (value.startTime && value.endTime && value.endTime <= value.startTime) {
-    return helpers.message({ custom: "Giờ kết thúc phải sau giờ bắt đầu" });
-  }
-  return value;
 });
 
 const registerTutorSchema = Joi.object({
@@ -140,22 +129,16 @@ const registerTutorSchema = Joi.object({
     .required()
     .custom((slots, helpers) => {
       if (!Array.isArray(slots) || slots.length < 2) return slots;
-      const byDay = new Map();
+      const seen = new Set();
       for (const slot of slots) {
-        if (!slot || !slot.day) continue;
-        if (!byDay.has(slot.day)) byDay.set(slot.day, []);
-        byDay.get(slot.day).push(slot);
-      }
-      for (const [day, daySlots] of byDay) {
-        const sorted = [...daySlots].sort((a, b) => a.startTime.localeCompare(b.startTime));
-        for (let i = 1; i < sorted.length; i++) {
-          // [LOW] HH:mm zero-padded → lex compare = chronological compare
-          if (sorted[i].startTime < sorted[i - 1].endTime) {
-            return helpers.message({
-              custom: `Lịch giảng dạy ngày ${day} bị trùng giờ: ${sorted[i - 1].startTime}-${sorted[i - 1].endTime} và ${sorted[i].startTime}-${sorted[i].endTime}`,
-            });
-          }
+        if (!slot || !slot.day || slot.hour === undefined) continue;
+        const key = `${slot.day}-${slot.hour}`;
+        if (seen.has(key)) {
+          return helpers.message({
+            custom: `Trùng lịch giảng dạy: ngày ${slot.day} lúc ${slot.hour}h đã được chọn nhiều lần`,
+          });
         }
+        seen.add(key);
       }
       return slots;
     })

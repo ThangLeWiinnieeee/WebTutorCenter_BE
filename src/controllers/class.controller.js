@@ -32,7 +32,7 @@ const createClass = async (req, res, next) => {
 
 const getClasses = async (req, res, next) => {
   try {
-    const result = await classService.getClasses(req.query);
+    const result = await classService.getClasses(req.query, req.user);
     return successResponse(res, {
       message: MESSAGE.LIST_SUCCESS,
       data: result,
@@ -72,7 +72,7 @@ const getClassDetail = async (req, res, next) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
     }
-    const classItem = await classService.getClassById(id);
+    const classItem = await classService.getClassById(id, req.user);
     return successResponse(res, {
       message: MESSAGE.DETAIL_SUCCESS,
       data: { classItem },

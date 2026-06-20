@@ -25,4 +25,20 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+const optionalAuthMiddleware = (req, res, next) => {
+  try {
+    const authHeader = req.headers["authorization"];
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      const decoded = verifyAccessToken(token);
+      req.user = decoded;
+    }
+  } catch (error) {
+    // Treat invalid token as guest
+  }
+  next();
+};
+
+authMiddleware.optional = optionalAuthMiddleware;
+
 module.exports = authMiddleware;
