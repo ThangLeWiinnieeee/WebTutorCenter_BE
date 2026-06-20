@@ -68,6 +68,7 @@ const MESSAGE = {
   // Class Application
   CLASS_APPLICATION_APPLY_SUCCESS: "Yêu cầu nhận lớp đã được gửi, vui lòng chờ admin xét duyệt",
   CLASS_APPLICATION_ALREADY_EXISTS: "Bạn đã gửi yêu cầu nhận lớp này trước đó",
+  CLASS_APPLICATION_OWN_CLASS: "Bạn không thể nhận lớp do chính mình đăng",
   CLASS_APPLICATION_NOT_FOUND: "Không tìm thấy đơn đăng ký nhận lớp",
   CLASS_APPLICATION_NOT_PENDING: "Đơn đăng ký này không ở trạng thái chờ duyệt",
   CLASS_APPLICATION_LIST_SUCCESS: "Lấy danh sách đơn đăng ký nhận lớp thành công",
@@ -79,6 +80,8 @@ const MESSAGE = {
   QUOTE_SUCCESS: "Tính học phí lớp mới thành công",
   CREATE_SUCCESS: "Đăng lớp mới thành công",
   LIST_SUCCESS: "Lấy danh sách lớp mới thành công",
+  CLASS_FEED_SUCCESS: "Lấy danh sách bài đăng theo môn thành công",
+  MY_POSTS_SUCCESS: "Lấy danh sách bài đăng của bạn thành công",
   DETAIL_SUCCESS: "Lấy chi tiết lớp mới thành công",
   SUBJECT_LIST_SUCCESS: "Lấy danh sách môn học thành công",
   PRICING_CONFIG_SUCCESS: "Lấy cấu hình học phí thành công",

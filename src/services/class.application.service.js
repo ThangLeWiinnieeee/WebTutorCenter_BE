@@ -16,6 +16,11 @@ const applyForClass = async (userId, classId) => {
   const classItem = await classRepository.findById(classId);
   if (!classItem) throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
 
+  // Không cho phép nhận lớp do chính mình đăng
+  if (classItem.createdBy?.toString() === String(userId)) {
+    throw new AppError(MESSAGE.CLASS_APPLICATION_OWN_CLASS, HTTP_STATUS.FORBIDDEN);
+  }
+
   const tutor = await tutorRepository.findByUserId(userId);
   if (!tutor) throw new AppError(MESSAGE.TUTOR_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
 
@@ -59,4 +64,12 @@ const applyForClass = async (userId, classId) => {
   return ClassApplicationMapper.toDTO(application);
 };
 
-module.exports = { applyForClass };
+const getMyApplications = async (userId, query = {}) => {
+  const tutor = await tutorRepository.findByUserId(userId);
+  if (!tutor) throw new AppError(MESSAGE.TUTOR_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+
+  const applications = await classApplicationRepository.findByTutorId(tutor._id, query.status);
+  return ClassApplicationMapper.toMineDTOs(applications);
+};
+
+module.exports = { applyForClass, getMyApplications };

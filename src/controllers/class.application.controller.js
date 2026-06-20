@@ -24,4 +24,17 @@ const applyForClass = async (req, res, next) => {
   }
 };
 
-module.exports = { applyForClass };
+const getMyApplications = async (req, res, next) => {
+  try {
+    const applications = await classApplicationService.getMyApplications(req.user.id, req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICATION_LIST_SUCCESS,
+      data: { applications },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+module.exports = { applyForClass, getMyApplications };
