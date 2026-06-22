@@ -8,6 +8,8 @@ const { ClassMapper } = require("../mappers");
 const MESSAGE = require("../constants/message");
 const { SUBJECTS } = require("../constants/tutor");
 const classPricingRepository = require("../repositories/class.pricing.repository");
+const promoService = require("./promo.service");
+const promoRepository = require("../repositories/promo.repository");
 
 let cachedPricingConfig = null;
 let pricingConfigCachedAt = 0;
@@ -124,15 +126,33 @@ const buildClassData = async (payload, userId) => {
   ensurePricingInputValid(payload, configDoc);
   const pricing = calculateFee(payload, configDoc);
   const classCode = await generateClassCode();
-  return {
+
+  // Áp mã ưu đãi (nếu có) lên học phí/tháng — re-validate phía server để không tin client
+  let promoCode = null;
+  let promoDiscount = 0;
+  let finalFeePerMonth = pricing.feePerMonth;
+  let promoDoc = null;
+  if (payload.promoCode) {
+    const result = await promoService.evaluatePromo(payload.promoCode, pricing.feePerMonth);
+    promoDoc = result.promo;
+    promoCode = result.promo.code;
+    promoDiscount = result.discountAmount;
+    finalFeePerMonth = result.finalAmount;
+  }
+
+  const data = {
     ...payload,
-    promoCode: payload.promoCode || null,
+    promoCode,
+    promoDiscount,
     classCode,
     provinceName: province.name,
     districtName: district.name,
     createdBy: userId,
     ...pricing,
+    finalFeePerMonth,
   };
+
+  return { data, promoDoc };
 };
 
 const quoteClass = async (payload) => {
@@ -192,8 +212,12 @@ const maskClassItem = async (classItem, user) => {
 };
 
 const createClass = async (payload, userId) => {
-  const data = await buildClassData(payload, userId);
+  const { data, promoDoc } = await buildClassData(payload, userId);
   const created = await classRepository.create(data);
+  // Tăng số lượt đã dùng của mã sau khi tạo lớp thành công
+  if (promoDoc?._id) {
+    await promoRepository.incrementUsed(promoDoc._id);
+  }
   return await maskClassItem(created, { id: userId });
 };
 

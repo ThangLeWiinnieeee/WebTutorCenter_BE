@@ -24,8 +24,11 @@ class ClassMapper {
       tutorGenderPref: classItem.tutorGenderPref,
       tutorLevelPref: classItem.tutorLevelPref,
       promoCode: classItem.promoCode,
+      promoDiscount: classItem.promoDiscount || 0,
       feePerSession: classItem.feePerSession,
       feePerMonth: classItem.feePerMonth,
+      finalFeePerMonth: classItem.finalFeePerMonth ?? classItem.feePerMonth,
+      deletedAt: classItem.deletedAt || null,
       createdAt: classItem.createdAt,
       updatedAt: classItem.updatedAt,
     };

@@ -65,6 +65,101 @@ const softDeleteAdminUser = async (req, res, next) => {
   }
 };
 
+// ──────────────────────────── Class (bài đăng) admin ────────────────────────────
+
+const getAdminClasses = async (req, res, next) => {
+  try {
+    const data = await adminService.getAdminClasses(req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.LIST_SUCCESS,
+      data,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const getAdminClassDetail = async (req, res, next) => {
+  try {
+    const classItem = await adminService.getAdminClassDetail(req.params.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.DETAIL_SUCCESS,
+      data: { classItem },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const deleteAdminClass = async (req, res, next) => {
+  try {
+    const result = await adminService.deleteAdminClass(req.params.id, req.user.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Đã chuyển bài đăng vào thùng rác",
+      data: result,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+// ──────────────────────────── Thùng rác (soft-delete) ────────────────────────────
+
+const getTrashItems = async (req, res, next) => {
+  try {
+    const data = await adminService.getTrashItems(req.params.type, req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Lấy danh sách thùng rác thành công",
+      data,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const getTrashCounts = async (req, res, next) => {
+  try {
+    const counts = await adminService.getTrashCounts();
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Lấy số lượng thùng rác thành công",
+      data: { counts },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const restoreTrashItem = async (req, res, next) => {
+  try {
+    const result = await adminService.restoreTrashItem(req.params.type, req.params.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Khôi phục thành công",
+      data: result,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const purgeTrashItem = async (req, res, next) => {
+  try {
+    const result = await adminService.purgeTrashItem(req.params.type, req.params.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Đã xóa vĩnh viễn",
+      data: result,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
 // ──────────────────────────── Tutor admin ────────────────────────────
 
 const getDashboardStats = async (req, res, next) => {
@@ -178,6 +273,13 @@ module.exports = {
   updateAdminUser,
   updateAdminUserStatus,
   softDeleteAdminUser,
+  getAdminClasses,
+  getAdminClassDetail,
+  deleteAdminClass,
+  getTrashItems,
+  getTrashCounts,
+  restoreTrashItem,
+  purgeTrashItem,
   getDashboardStats,
   getPendingTutors,
   approveTutor,

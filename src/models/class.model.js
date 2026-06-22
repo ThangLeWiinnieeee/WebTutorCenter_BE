@@ -133,6 +133,12 @@ const classSchema = new mongoose.Schema(
       trim: true,
       maxlength: 50,
     },
+    // Số tiền được giảm trên học phí/tháng nhờ mã ưu đãi (0 nếu không dùng mã)
+    promoDiscount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
     feePerSession: {
       type: Number,
       min: 0,
@@ -142,6 +148,22 @@ const classSchema = new mongoose.Schema(
       type: Number,
       min: 0,
       required: true,
+    },
+    // Học phí/tháng sau khi áp mã ưu đãi (= feePerMonth nếu không dùng mã)
+    finalFeePerMonth: {
+      type: Number,
+      min: 0,
+    },
+    // Xóa mềm: bài đăng vào thùng rác (ẩn khỏi mọi danh sách) thay vì xóa hẳn
+    deletedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
   },
   { timestamps: true }
