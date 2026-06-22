@@ -80,6 +80,31 @@ const countPending = async () => {
   return await ClassApplication.countDocuments({ status: CLASS_APPLICATION_STATUS.PENDING });
 };
 
+// Đếm số đơn nhận lớp của một bài đăng (theo trạng thái nếu có)
+const countByClassId = async (classId, status) => {
+  const filter = { classId };
+  if (status && status !== "all") filter.status = status;
+  return await ClassApplication.countDocuments(filter);
+};
+
+// Đếm số đơn nhận lớp cho nhiều bài đăng cùng lúc → trả về map { classId: count }
+const countByClassIds = async (classIds = []) => {
+  if (!classIds.length) return {};
+  const rows = await ClassApplication.aggregate([
+    { $match: { classId: { $in: classIds } } },
+    { $group: { _id: "$classId", count: { $sum: 1 } } },
+  ]);
+  return rows.reduce((acc, row) => {
+    acc[String(row._id)] = row.count;
+    return acc;
+  }, {});
+};
+
+// Xóa toàn bộ đơn nhận lớp thuộc một bài đăng (dùng khi admin xóa bài đăng)
+const deleteByClassId = async (classId) => {
+  return await ClassApplication.deleteMany({ classId });
+};
+
 module.exports = {
   create,
   findById,
@@ -91,4 +116,7 @@ module.exports = {
   update,
   countPending,
   countAll,
+  countByClassId,
+  countByClassIds,
+  deleteByClassId,
 };

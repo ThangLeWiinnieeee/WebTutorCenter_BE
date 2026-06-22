@@ -1,5 +1,6 @@
 const Joi = require("joi");
 const ROLES = require("../constants/role");
+const { SUBJECTS } = require("../constants/tutor");
 
 // ──────────────────────────── Shared middleware ────────────────────────────
 
@@ -93,6 +94,22 @@ const adminListClassApplicationsQuerySchema = Joi.object({
   status: Joi.string().valid("pending", "approved", "rejected", "all").default("pending"),
 });
 
+// ──────────────────────────── Class (bài đăng) schemas ────────────────────────────
+
+const adminListClassesQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(10),
+  keyword: Joi.string().trim().allow("").max(100).optional(),
+  subject: Joi.string().valid(...SUBJECTS).allow("").optional(),
+});
+
+// ──────────────────────────── Trash (thùng rác) schemas ────────────────────────────
+
+const adminTrashListQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(10),
+});
+
 module.exports = {
   validate,
   validateQuery,
@@ -102,4 +119,6 @@ module.exports = {
   rejectTutorSchema,
   rejectClassApplicationSchema,
   adminListClassApplicationsQuerySchema,
+  adminListClassesQuerySchema,
+  adminTrashListQuerySchema,
 };

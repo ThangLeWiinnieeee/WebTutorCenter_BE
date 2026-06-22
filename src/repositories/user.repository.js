@@ -88,6 +88,32 @@ const findAllByRole = async (role) => {
   return await User.find({ role, deletedAt: null, isActive: true }).lean();
 };
 
+// ──────────────────────────── Thùng rác (soft-delete) ────────────────────────────
+
+const findDeleted = async ({ page, limit }) => {
+  const skip = (page - 1) * limit;
+  const filter = { deletedAt: { $ne: null } };
+  const [users, totalItems] = await Promise.all([
+    User.find(filter).sort({ deletedAt: -1 }).skip(skip).limit(limit),
+    User.countDocuments(filter),
+  ]);
+  return { users, totalItems };
+};
+
+// Khôi phục tài khoản khỏi thùng rác (kích hoạt lại để dùng được ngay)
+const restore = async (userId) => {
+  return await User.findOneAndUpdate(
+    { _id: userId, deletedAt: { $ne: null } },
+    { deletedAt: null, deletedBy: null, isActive: true },
+    { new: true },
+  );
+};
+
+// Xóa vĩnh viễn (hard delete) — chỉ áp dụng cho tài khoản đang ở thùng rác
+const hardDelete = async (userId) => {
+  return await User.findOneAndDelete({ _id: userId, deletedAt: { $ne: null } });
+};
+
 module.exports = {
   findByEmail,
   findById,
@@ -103,4 +129,7 @@ module.exports = {
   updateByAdmin,
   softDeleteByAdmin,
   findAllByRole,
+  findDeleted,
+  restore,
+  hardDelete,
 };

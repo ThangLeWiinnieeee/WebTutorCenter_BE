@@ -13,6 +13,8 @@ const {
   rejectTutorSchema,
   rejectClassApplicationSchema,
   adminListClassApplicationsQuerySchema,
+  adminListClassesQuerySchema,
+  adminTrashListQuerySchema,
 } = require("../validations/admin.validation");
 
 // Áp dụng auth + admin role check cho tất cả admin routes
@@ -23,6 +25,17 @@ router.get("/users", validateQuery(adminListUsersQuerySchema), adminController.g
 router.patch("/users/:id", validate(adminUpdateUserSchema), adminController.updateAdminUser);
 router.patch("/users/:id/status", validate(adminUpdateUserStatusSchema), adminController.updateAdminUserStatus);
 router.delete("/users/:id", adminController.softDeleteAdminUser);
+
+// ──────────────────────────── Class routes (/admin/classes) — quản lý bài đăng tìm gia sư ────────────────────────────
+router.get("/classes", validateQuery(adminListClassesQuerySchema), adminController.getAdminClasses);
+router.get("/classes/:id", adminController.getAdminClassDetail);
+router.delete("/classes/:id", adminController.deleteAdminClass);
+
+// ──────────────────────────── Trash routes (/admin/trash) — thùng rác (xóa mềm) ────────────────────────────
+router.get("/trash/counts", adminController.getTrashCounts);
+router.get("/trash/:type", validateQuery(adminTrashListQuerySchema), adminController.getTrashItems);
+router.patch("/trash/:type/:id/restore", adminController.restoreTrashItem);
+router.delete("/trash/:type/:id", adminController.purgeTrashItem);
 
 // ──────────────────────────── Tutor routes (/admin/tutors) ────────────────────────────
 router.get("/tutors/stats", adminController.getDashboardStats);
