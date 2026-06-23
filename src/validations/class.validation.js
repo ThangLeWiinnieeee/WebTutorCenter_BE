@@ -1,5 +1,6 @@
 const Joi = require("joi");
 const { SUBJECTS, GENDER_OPTIONS, TUTOR_LEVEL_OPTIONS, DAYS_OF_WEEK, PHONE_REGEX } = require("../constants/tutor");
+const { validateBody, validateQuery } = require("../middlewares/validate.middleware");
 
 const availabilitySlotSchema = Joi.object({
   day: Joi.string()
@@ -51,6 +52,8 @@ const baseClassSchema = Joi.object({
 
 const quoteClassSchema = baseClassSchema;
 const createClassSchema = baseClassSchema;
+// Sửa bài đăng: dùng lại toàn bộ field nhập như khi tạo (mã ưu đãi giữ nguyên, không sửa qua đây)
+const updateClassSchema = baseClassSchema;
 
 const listClassQuerySchema = Joi.object({
   subject: Joi.string().trim().max(100).optional(),
@@ -60,36 +63,22 @@ const listClassQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(50).default(6),
 });
 
-const validateBody = (schema) => (req, res, next) => {
-  const { error, value } = schema.validate(req.body, { abortEarly: false, convert: true });
-  if (error) {
-    return res.status(422).json({
-      success: false,
-      message: "Dữ liệu đầu vào không hợp lệ",
-      errors: error.details.map((item) => item.message),
-    });
-  }
-  req.body = value;
-  next();
-};
-
-const validateQuery = (schema) => (req, res, next) => {
-  const { error, value } = schema.validate(req.query, { abortEarly: false, convert: true });
-  if (error) {
-    return res.status(422).json({
-      success: false,
-      message: "Bộ lọc không hợp lệ",
-      errors: error.details.map((item) => item.message),
-    });
-  }
-  req.query = value;
-  next();
-};
+// Gia sư hủy đơn nhận lớp — bắt buộc nêu lý do
+const cancelApplicationSchema = Joi.object({
+  reason: Joi.string().trim().min(5).max(500).required().messages({
+    "string.empty": "Vui lòng nhập lý do hủy đơn",
+    "string.min": "Lý do hủy phải có ít nhất 5 ký tự",
+    "string.max": "Lý do hủy không được vượt quá 500 ký tự",
+    "any.required": "Vui lòng nhập lý do hủy đơn",
+  }),
+});
 
 module.exports = {
   quoteClassSchema,
   createClassSchema,
+  updateClassSchema,
   listClassQuerySchema,
+  cancelApplicationSchema,
   validateBody,
   validateQuery,
 };

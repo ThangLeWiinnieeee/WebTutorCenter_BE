@@ -6,6 +6,7 @@ const {
   TIME_REGEX,
   DAYS_OF_WEEK,
 } = require("../constants/tutor");
+const { validate } = require("../middlewares/validate.middleware");
 
 const availabilitySlotSchema = Joi.object({
   day: Joi.string()
@@ -158,18 +159,41 @@ const rejectTutorSchema = Joi.object({
   }),
 });
 
-const validate = (schema) => (req, res, next) => {
-  const { error, value } = schema.validate(req.body, { abortEarly: false, convert: true });
-  if (error) {
-    const errors = error.details.map((d) => d.message);
-    return res.status(422).json({ success: false, message: "Dữ liệu đầu vào không hợp lệ", errors });
-  }
-  req.body = value;
-  next();
-};
+// Gia sư đổi hồ sơ (chờ duyệt) — chỉ các field được phép, tất cả optional, cần ít nhất 1.
+const profileChangeRequestSchema = Joi.object({
+  phone: Joi.string().pattern(PHONE_REGEX).messages({
+    "string.pattern.base": "Số điện thoại không hợp lệ (VD: 0912345678 hoặc 84912345678)",
+  }),
+  occupationStatus: Joi.string()
+    .valid(...Object.values(OCCUPATION_STATUS))
+    .messages({ "any.only": "Tình trạng nghề nghiệp không hợp lệ" }),
+  teachingAreas: Joi.object({
+    province: Joi.number().integer().required().messages({ "any.required": "Mã tỉnh/thành là bắt buộc" }),
+    districts: Joi.array()
+      .items(Joi.number().integer())
+      .min(1)
+      .required()
+      .messages({ "array.min": "Phải chọn ít nhất 1 quận/huyện" }),
+  }),
+  currentArea: Joi.object({
+    province: Joi.number().integer().required().messages({ "any.required": "Mã tỉnh/thành là bắt buộc" }),
+    district: Joi.number().integer().required().messages({ "any.required": "Mã quận/huyện là bắt buộc" }),
+  }),
+  bio: Joi.string().min(10).max(2000).messages({
+    "string.min": "Phần giới thiệu bản thân phải có ít nhất 10 ký tự",
+    "string.max": "Phần giới thiệu bản thân không được vượt quá 2000 ký tự",
+  }),
+  availability: Joi.array()
+    .items(availabilitySlotSchema)
+    .min(1)
+    .messages({ "array.min": "Phải có ít nhất 1 khung giờ giảng dạy" }),
+})
+  .min(1)
+  .messages({ "object.min": "Vui lòng cung cấp ít nhất một thông tin để cập nhật" });
 
 module.exports = {
   registerTutorSchema,
   rejectTutorSchema,
+  profileChangeRequestSchema,
   validate,
 };

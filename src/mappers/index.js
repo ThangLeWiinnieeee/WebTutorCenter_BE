@@ -13,5 +13,6 @@ defineLazyExport(mappers, "PromoMapper", "./promo.mapper");
 defineLazyExport(mappers, "NotificationMapper", "./notification.mapper");
 defineLazyExport(mappers, "TutorMapper", "./tutor.mapper");
 defineLazyExport(mappers, "UserMapper", "./user.mapper");
+defineLazyExport(mappers, "ProfileChangeRequestMapper", "./profileChangeRequest.mapper");
 
 module.exports = mappers;

@@ -3,15 +3,26 @@ const tutorRepository = require("../repositories/tutor.repository");
 const classRepository = require("../repositories/class.repository");
 const promoRepository = require("../repositories/promo.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
+const profileChangeRequestRepository = require("../repositories/profileChangeRequest.repository");
 const notificationService = require("./notification.service");
 const { NOTIFICATION_TYPES } = require("../models/notification.model");
 const { CLASS_APPLICATION_STATUS } = require("../models/class.application.model");
+const { CLASS_STATUS } = require("../models/class.model");
+const { PROFILE_CHANGE_STATUS } = require("../models/profileChangeRequest.model");
 const AppError = require("../utils/AppError");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
 const ROLES = require("../constants/role");
 const { TUTOR_STATUS } = require("../constants/tutor");
-const { UserMapper, TutorMapper, ClassApplicationMapper, ClassMapper, PromoMapper } = require("../mappers");
+const {
+  UserMapper,
+  TutorMapper,
+  ClassApplicationMapper,
+  ClassMapper,
+  PromoMapper,
+  ProfileChangeRequestMapper,
+} = require("../mappers");
+const { buildPagination } = require("../helper/pagination.helper");
 
 // ──────────────────────────── User admin ────────────────────────────
 
@@ -34,17 +45,9 @@ const getAdminUsers = async (query) => {
   const limit = query.limit || 10;
   const filters = buildUserFilters(query);
   const { users, totalItems } = await userRepository.findManyForAdmin(filters, { page, limit });
-  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
   return {
     users: UserMapper.toDTOs(users),
-    pagination: {
-      page,
-      limit,
-      totalItems,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPrevPage: page > 1,
-    },
+    pagination: buildPagination({ page, limit, totalItems }),
   };
 };
 
@@ -81,9 +84,17 @@ const softDeleteAdminUser = async (adminUserId, targetUserId) => {
 
 // ──────────────────────────── Tutor admin ────────────────────────────
 
-const getPendingTutors = async () => {
-  const tutors = await tutorRepository.findAllPending();
-  return TutorMapper.toDTOList(tutors);
+const getPendingTutors = async (query = {}) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const [tutors, totalItems] = await Promise.all([
+    tutorRepository.findPendingPage({ page, limit }),
+    tutorRepository.countByStatus(TUTOR_STATUS.PENDING),
+  ]);
+  return {
+    tutors: await TutorMapper.toDTOList(tutors),
+    pagination: buildPagination({ page, limit, totalItems }),
+  };
 };
 
 const approveTutor = async (tutorId) => {
@@ -132,8 +143,28 @@ const getDashboardStats = async () => {
 // ──────────────────────────── Class application admin ────────────────────────────
 
 const getClassApplications = async (query = {}) => {
-  const applications = await classApplicationRepository.findByStatus(query.status);
-  return ClassApplicationMapper.toDTOs(applications);
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const status = query.status && query.status !== "all" ? query.status : null;
+
+  const [docs, grouped] = await Promise.all([
+    classApplicationRepository.findByStatusPage({ status, page, limit }),
+    classApplicationRepository.countAll(),
+  ]);
+
+  const counts = {
+    all: grouped.pending + grouped.approved + grouped.rejected,
+    pending: grouped.pending,
+    approved: grouped.approved,
+    rejected: grouped.rejected,
+  };
+  const totalItems = status ? counts[status] ?? 0 : counts.all;
+
+  return {
+    applications: ClassApplicationMapper.toDTOs(docs),
+    pagination: buildPagination({ page, limit, totalItems }),
+    counts,
+  };
 };
 
 const getClassApplicationStats = async () => {
@@ -154,13 +185,23 @@ const approveClassApplication = async (applicationId) => {
   const tutor = application.tutorId;
   const tutorUserId = tutor.userId?._id ?? tutor.userId;
   const classItem = application.classId;
+  const posterUserId = classItem.createdBy?._id ?? classItem.createdBy;
 
   await Promise.all([
+    // Lớp chuyển sang "đã ghép" → ẩn khỏi feed/danh sách, vẫn còn trong "bài đăng của tôi"
+    classRepository.updateStatus(classItem._id, CLASS_STATUS.MATCHED),
     notificationService.createNotification({
       userId: tutorUserId,
       type: NOTIFICATION_TYPES.CLASS_APPLICATION_APPROVED,
       message: `Chúc mừng! Bạn đã được duyệt nhận lớp ${classItem.classCode} - Môn: ${classItem.subject}. Admin sẽ liên hệ sớm để xác nhận thông tin.`,
     }),
+    // Báo cho người đăng rằng đã có gia sư nhận lớp
+    posterUserId &&
+      notificationService.createNotification({
+        userId: posterUserId,
+        type: NOTIFICATION_TYPES.CLASS_MATCHED,
+        message: `Lớp ${classItem.classCode} (Môn: ${classItem.subject}) của bạn đã có gia sư nhận. Gia sư sẽ liên hệ với bạn trong thời gian sắp tới.`,
+      }),
     tutorRepository.update(tutor._id, {
       $inc: { totalClassesAccepted: 1, classesAcceptedThisMonth: 1 },
     }),
@@ -194,6 +235,176 @@ const rejectClassApplication = async (applicationId, rejectionReason) => {
   return ClassApplicationMapper.toDTO(updated);
 };
 
+// ──────────────────────────── Hủy đơn nhận lớp (gia sư rút đơn) ────────────────────────────
+
+const getApplicationCancellations = async (query = {}) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const status = query.status && query.status !== "all" ? query.status : null;
+
+  const [docs, grouped] = await Promise.all([
+    classApplicationRepository.findCancellationsPage({ status, page, limit }),
+    classApplicationRepository.countCancellationsGrouped(),
+  ]);
+
+  const counts = {
+    all: grouped.cancel_requested + grouped.cancelled,
+    cancel_requested: grouped.cancel_requested,
+    cancelled: grouped.cancelled,
+  };
+  const totalItems = status ? counts[status] ?? 0 : counts.all;
+
+  return {
+    cancellations: ClassApplicationMapper.toDTOs(docs),
+    pagination: buildPagination({ page, limit, totalItems }),
+    counts,
+  };
+};
+
+const approveCancellation = async (applicationId) => {
+  const application = await classApplicationRepository.findById(applicationId);
+  if (!application) throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  if (application.status !== CLASS_APPLICATION_STATUS.CANCEL_REQUESTED) {
+    throw new AppError(MESSAGE.CLASS_APPLICATION_CANCEL_NOT_REQUESTED, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const updated = await classApplicationRepository.update(applicationId, {
+    status: CLASS_APPLICATION_STATUS.CANCELLED,
+  });
+
+  const tutor = application.tutorId;
+  const tutorUserId = tutor.userId?._id ?? tutor.userId;
+  const classItem = application.classId;
+
+  // Gia sư rút lớp đã nhận → mở lại cho người khác nếu chưa tới giờ học, ngược lại đánh dấu hết hạn.
+  // Reset cờ hoàn thành vì gia sư đã thay đổi.
+  const stillUpcoming = classItem.startDate && new Date(classItem.startDate) > new Date();
+  await classRepository.update(classItem._id, {
+    status: stillUpcoming ? CLASS_STATUS.OPEN : CLASS_STATUS.EXPIRED,
+    completedByPoster: false,
+    completedByTutor: false,
+    completedAt: null,
+  });
+
+  // Trừ lại thống kê đã cộng khi duyệt nhận lớp (clamp ≥ 0)
+  await tutorRepository.update(tutor._id, {
+    totalClassesAccepted: Math.max(0, (tutor.totalClassesAccepted || 0) - 1),
+    classesAcceptedThisMonth: Math.max(0, (tutor.classesAcceptedThisMonth || 0) - 1),
+  });
+
+  await notificationService.createNotification({
+    userId: tutorUserId,
+    type: NOTIFICATION_TYPES.CLASS_APPLICATION_CANCEL_APPROVED,
+    message: `Yêu cầu hủy lớp ${classItem.classCode} (Môn: ${classItem.subject}) của bạn đã được duyệt.`,
+  });
+
+  return ClassApplicationMapper.toDTO(updated);
+};
+
+const rejectCancellation = async (applicationId, reason) => {
+  const application = await classApplicationRepository.findById(applicationId);
+  if (!application) throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  if (application.status !== CLASS_APPLICATION_STATUS.CANCEL_REQUESTED) {
+    throw new AppError(MESSAGE.CLASS_APPLICATION_CANCEL_NOT_REQUESTED, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const updated = await classApplicationRepository.update(applicationId, {
+    status: CLASS_APPLICATION_STATUS.APPROVED,
+    cancellationReason: null,
+  });
+
+  const tutor = application.tutorId;
+  const tutorUserId = tutor.userId?._id ?? tutor.userId;
+  const classItem = application.classId;
+
+  const reasonText = reason ? ` Lý do: ${reason}` : "";
+  await notificationService.createNotification({
+    userId: tutorUserId,
+    type: NOTIFICATION_TYPES.CLASS_APPLICATION_CANCEL_REJECTED,
+    message: `Yêu cầu hủy lớp ${classItem.classCode} (Môn: ${classItem.subject}) đã bị từ chối, bạn vẫn nhận lớp này.${reasonText}`,
+  });
+
+  return ClassApplicationMapper.toDTO(updated);
+};
+
+// ──────────────────────────── Profile change request admin (gia sư đổi hồ sơ) ────────────────────────────
+
+const getProfileChangeRequests = async (query = {}) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const status = query.status && query.status !== "all" ? query.status : null;
+
+  const [docs, grouped] = await Promise.all([
+    profileChangeRequestRepository.findPage({ status, page, limit }),
+    profileChangeRequestRepository.countGrouped(),
+  ]);
+
+  const counts = {
+    all: grouped.pending + grouped.approved + grouped.rejected,
+    pending: grouped.pending,
+    approved: grouped.approved,
+    rejected: grouped.rejected,
+  };
+  const totalItems = status ? counts[status] ?? 0 : counts.all;
+
+  return {
+    requests: await ProfileChangeRequestMapper.toDTOList(docs),
+    pagination: buildPagination({ page, limit, totalItems }),
+    counts,
+  };
+};
+
+const approveProfileChange = async (requestId, adminUserId) => {
+  const request = await profileChangeRequestRepository.findById(requestId);
+  if (!request) throw new AppError(MESSAGE.PROFILE_CHANGE_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  if (request.status !== PROFILE_CHANGE_STATUS.PENDING) {
+    throw new AppError(MESSAGE.PROFILE_CHANGE_NOT_PENDING, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const tutorId = request.tutorId?._id ?? request.tutorId;
+  // Áp các thay đổi (đã whitelist khi tạo) vào hồ sơ gia sư
+  await tutorRepository.update(tutorId, request.changes);
+
+  const updated = await profileChangeRequestRepository.update(requestId, {
+    status: PROFILE_CHANGE_STATUS.APPROVED,
+    reviewedBy: adminUserId,
+    reviewedAt: new Date(),
+  });
+
+  const tutorUserId = request.userId?._id ?? request.userId;
+  await notificationService.createNotification({
+    userId: tutorUserId,
+    type: NOTIFICATION_TYPES.PROFILE_CHANGE_APPROVED,
+    message: "Yêu cầu đổi thông tin hồ sơ của bạn đã được duyệt và cập nhật.",
+  });
+
+  return ProfileChangeRequestMapper.toDTO(updated);
+};
+
+const rejectProfileChange = async (requestId, rejectionReason, adminUserId) => {
+  const request = await profileChangeRequestRepository.findById(requestId);
+  if (!request) throw new AppError(MESSAGE.PROFILE_CHANGE_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  if (request.status !== PROFILE_CHANGE_STATUS.PENDING) {
+    throw new AppError(MESSAGE.PROFILE_CHANGE_NOT_PENDING, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const updated = await profileChangeRequestRepository.update(requestId, {
+    status: PROFILE_CHANGE_STATUS.REJECTED,
+    rejectionReason,
+    reviewedBy: adminUserId,
+    reviewedAt: new Date(),
+  });
+
+  const tutorUserId = request.userId?._id ?? request.userId;
+  await notificationService.createNotification({
+    userId: tutorUserId,
+    type: NOTIFICATION_TYPES.PROFILE_CHANGE_REJECTED,
+    message: `Yêu cầu đổi thông tin hồ sơ của bạn đã bị từ chối. Lý do: ${rejectionReason}`,
+  });
+
+  return ProfileChangeRequestMapper.toDTO(updated);
+};
+
 // ──────────────────────────── Class (bài đăng tìm gia sư) admin ────────────────────────────
 
 const buildClassFilters = ({ keyword, subject }) => {
@@ -218,18 +429,10 @@ const getAdminClasses = async (query = {}) => {
   const limit = query.limit || 10;
   const filters = buildClassFilters(query);
   const { classes, totalItems } = await classRepository.findManyForAdmin(filters, { page, limit });
-  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
   const dtos = await attachApplicationCounts(ClassMapper.toDTOs(classes));
   return {
     classes: dtos,
-    pagination: {
-      page,
-      limit,
-      totalItems,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPrevPage: page > 1,
-    },
+    pagination: buildPagination({ page, limit, totalItems }),
   };
 };
 
@@ -297,18 +500,10 @@ const getTrashItems = async (type, query = {}) => {
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
   const { items, totalItems } = await entity.list({ page, limit });
-  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
   return {
     type,
     items,
-    pagination: {
-      page,
-      limit,
-      totalItems,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPrevPage: page > 1,
-    },
+    pagination: buildPagination({ page, limit, totalItems }),
   };
 };
 
@@ -359,4 +554,10 @@ module.exports = {
   getClassApplicationStats,
   approveClassApplication,
   rejectClassApplication,
+  getProfileChangeRequests,
+  approveProfileChange,
+  rejectProfileChange,
+  getApplicationCancellations,
+  approveCancellation,
+  rejectCancellation,
 };

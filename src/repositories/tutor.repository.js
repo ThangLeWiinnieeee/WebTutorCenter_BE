@@ -31,6 +31,16 @@ const findAllPending = async () => {
     .sort({ createdAt: -1 });
 };
 
+// Một trang hồ sơ gia sư đang chờ duyệt, mới nhất trước.
+const findPendingPage = async ({ page = 1, limit = 10 }) => {
+  const skip = (Math.max(1, page) - 1) * limit;
+  return await Tutor.find({ status: TUTOR_STATUS.PENDING })
+    .populate("userId", POPULATE_USER)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+};
+
 const countByStatus = async (status) => {
   return await Tutor.countDocuments({ status });
 };
@@ -155,6 +165,7 @@ module.exports = {
   update,
   updateByUserId,
   findAllPending,
+  findPendingPage,
   countByStatus,
   findAll,
   findAllApproved,

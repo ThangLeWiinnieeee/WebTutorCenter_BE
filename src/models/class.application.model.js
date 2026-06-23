@@ -4,6 +4,8 @@ const CLASS_APPLICATION_STATUS = {
   PENDING: "pending",
   APPROVED: "approved",
   REJECTED: "rejected",
+  CANCEL_REQUESTED: "cancel_requested",
+  CANCELLED: "cancelled",
 };
 
 const classApplicationSchema = new mongoose.Schema(
@@ -27,6 +29,12 @@ const classApplicationSchema = new mongoose.Schema(
       index: true,
     },
     rejectionReason: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: null,
+    },
+    cancellationReason: {
       type: String,
       trim: true,
       maxlength: 500,

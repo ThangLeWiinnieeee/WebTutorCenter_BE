@@ -1,7 +1,12 @@
 const ClassModel = require("../models/class.model");
+const { CLASS_STATUS } = require("../models/class.model");
 
 // Mặc định mọi truy vấn đọc đều bỏ qua bài đăng đã xóa mềm (nằm trong thùng rác)
 const NOT_DELETED = { deletedAt: null };
+
+// Bài đăng "còn hiển thị" ở feed/danh sách công khai: chưa bị ghép hoặc hết hạn.
+// Dùng $nin nên cũng khớp các bài cũ chưa có field `status` (legacy) — coi như đang mở.
+const VISIBLE_STATUS = { status: { $nin: [CLASS_STATUS.MATCHED, CLASS_STATUS.EXPIRED] } };
 
 const create = async (payload) => {
   const doc = new ClassModel(payload);
@@ -21,7 +26,9 @@ const findMany = async (filters = {}, options = {}) => {
   const page = options.page || 1;
   const limit = options.limit || 6;
   const skip = (page - 1) * limit;
-  const queryFilters = { ...NOT_DELETED, ...filters };
+  const queryFilters = { ...NOT_DELETED, ...VISIBLE_STATUS, ...filters };
+  // Ẩn các lớp đã có đơn nhận (pending/approved/cancel_requested) — đồng bộ với feed gia sư
+  if (options.excludeIds?.length) queryFilters._id = { $nin: options.excludeIds };
 
   const [classes, totalItems] = await Promise.all([
     ClassModel.find(queryFilters).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -36,7 +43,7 @@ const findBySubjects = async (subjects = [], options = {}) => {
   const page = options.page || 1;
   const limit = options.limit || 10;
   const skip = (page - 1) * limit;
-  const filters = { ...NOT_DELETED, subject: { $in: subjects } };
+  const filters = { ...NOT_DELETED, ...VISIBLE_STATUS, subject: { $in: subjects } };
   if (options.excludeIds?.length) filters._id = { $nin: options.excludeIds };
 
   const [classes, totalItems] = await Promise.all([
@@ -49,9 +56,36 @@ const findBySubjects = async (subjects = [], options = {}) => {
 
 // Đếm số bài đăng mới (tạo từ thời điểm `since`) thuộc các môn đã cho
 const countBySubjectsSince = async (subjects = [], since, excludeIds = []) => {
-  const filter = { ...NOT_DELETED, subject: { $in: subjects }, createdAt: { $gte: since } };
+  const filter = {
+    ...NOT_DELETED,
+    ...VISIBLE_STATUS,
+    subject: { $in: subjects },
+    createdAt: { $gte: since },
+  };
   if (excludeIds.length) filter._id = { $nin: excludeIds };
   return await ClassModel.countDocuments(filter);
+};
+
+// Cập nhật trạng thái vòng đời của một bài đăng
+const updateStatus = async (id, status) => {
+  return await ClassModel.findByIdAndUpdate(id, { status }, { new: true }).lean();
+};
+
+// Cập nhật một số field của bài đăng (vd cờ hoàn thành)
+const update = async (id, data) => {
+  return await ClassModel.findByIdAndUpdate(id, data, { new: true }).lean();
+};
+
+// Bài đăng cần được đánh dấu hết hạn: đã tới thời gian bắt đầu, còn đang mở,
+// và không nằm trong danh sách lớp đang có đơn (pending/approved/cancel_requested).
+const findExpirableClasses = async (now, excludeIds = []) => {
+  const filter = {
+    ...NOT_DELETED,
+    ...VISIBLE_STATUS,
+    startDate: { $lte: now },
+  };
+  if (excludeIds.length) filter._id = { $nin: excludeIds };
+  return await ClassModel.find(filter).lean();
 };
 
 // Danh sách bài đăng cho admin (có lọc + populate người đăng)
@@ -123,6 +157,11 @@ const deleteById = async (id) => {
   return await ClassModel.findOneAndDelete({ _id: id, deletedAt: { $ne: null } }).lean();
 };
 
+// Xóa vĩnh viễn theo id (không cần ở thùng rác) — dùng cho chủ bài đăng tự xóa
+const hardDelete = async (id) => {
+  return await ClassModel.findByIdAndDelete(id).lean();
+};
+
 // Danh sách bài đăng do một người dùng tạo (bài đăng tìm gia sư của họ)
 const findByCreatedBy = async (userId, options = {}) => {
   const page = options.page || 1;
@@ -145,6 +184,9 @@ module.exports = {
   findMany,
   findBySubjects,
   countBySubjectsSince,
+  updateStatus,
+  update,
+  findExpirableClasses,
   findByCreatedBy,
   findManyForAdmin,
   findByIdPopulated,
@@ -152,4 +194,5 @@ module.exports = {
   restore,
   findDeleted,
   deleteById,
+  hardDelete,
 };

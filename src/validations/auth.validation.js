@@ -1,5 +1,7 @@
 const Joi = require("joi");
 const ROLES = require("../constants/role");
+const { PHONE_REGEX } = require("../constants/tutor");
+const { validate } = require("../middlewares/validate.middleware");
 
 const registerSchema = Joi.object({
   fullName: Joi.string().min(2).max(100).required().messages({
@@ -30,7 +32,7 @@ const registerSchema = Joi.object({
       "any.only": `Vai trò phải là '${ROLES.USER}' hoặc '${ROLES.TUTOR}'`,
     }),
   phone: Joi.string()
-    .pattern(/^(0[3|5|7|8|9])+([0-9]{8})$/)
+    .pattern(PHONE_REGEX)
     .required()
     .messages({
       "string.pattern.base": "Số điện thoại không hợp lệ (phải là số điện thoại Việt Nam 10 số)",
@@ -125,16 +127,6 @@ const resetPasswordSchema = Joi.object({
     "any.required": "Mật khẩu xác nhận là bắt buộc",
   }),
 });
-
-const validate = (schema) => (req, res, next) => {
-  const { error, value } = schema.validate(req.body, { abortEarly: false });
-  if (error) {
-    const errors = error.details.map((d) => d.message);
-    return res.status(422).json({ success: false, message: "Dữ liệu đầu vào không hợp lệ", errors });
-  }
-  req.body = value;
-  next();
-};
 
 module.exports = {
   registerSchema,

@@ -1,4 +1,6 @@
 const Joi = require("joi");
+const { PHONE_REGEX, GENDER_OPTIONS } = require("../constants/tutor");
+const { validate } = require("../middlewares/validate.middleware");
 
 const updateProfileSchema = Joi.object({
   fullName: Joi.string().min(2).max(100).required().messages({
@@ -8,14 +10,14 @@ const updateProfileSchema = Joi.object({
     "any.required": "Họ tên là bắt buộc",
   }),
   phone: Joi.string()
-    .pattern(/^(0[3|5|7|8|9])+([0-9]{8})$/)
+    .pattern(PHONE_REGEX)
     .required()
     .messages({
       "string.pattern.base": "Số điện thoại không hợp lệ (phải là số điện thoại Việt Nam 10 số)",
       "any.required": "Số điện thoại là bắt buộc",
       "string.empty": "Số điện thoại là bắt buộc",
     }),
-  gender: Joi.string().valid("male", "female", "other").allow(null, "").optional().messages({
+  gender: Joi.string().valid(...GENDER_OPTIONS).allow(null, "").optional().messages({
     "any.only": "Giới tính không hợp lệ",
   }),
   dateOfBirth: Joi.date().max("now").required().messages({
@@ -24,15 +26,5 @@ const updateProfileSchema = Joi.object({
     "any.required": "Ngày sinh là bắt buộc",
   }),
 });
-
-const validate = (schema) => (req, res, next) => {
-  const { error, value } = schema.validate(req.body, { abortEarly: false });
-  if (error) {
-    const errors = error.details.map((d) => d.message);
-    return res.status(422).json({ success: false, message: "Dữ liệu đầu vào không hợp lệ", errors });
-  }
-  req.body = value;
-  next();
-};
 
 module.exports = { updateProfileSchema, validate };

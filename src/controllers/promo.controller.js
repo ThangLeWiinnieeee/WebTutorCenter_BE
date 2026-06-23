@@ -68,10 +68,24 @@ const deletePromo = async (req, res, next) => {
 
 const validatePromo = async (req, res, next) => {
   try {
-    const result = await promoService.validatePromoForAmount(req.body.code, req.body.amount);
+    const result = await promoService.validatePromoForAmount(req.body.code, req.body.amount, req.user.id);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
       message: "Áp dụng mã ưu đãi thành công",
+      data: result,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+// Kho mã giảm giá của người dùng hiện tại
+const getMyVouchers = async (req, res, next) => {
+  try {
+    const result = await promoService.listMyVouchers(req.user.id, req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Lấy danh sách mã giảm giá thành công",
       data: result,
     });
   } catch (error) {
@@ -85,4 +99,5 @@ module.exports = {
   updatePromo,
   deletePromo,
   validatePromo,
+  getMyVouchers,
 };

@@ -1,32 +1,5 @@
 const Joi = require("joi");
-
-// ──────────────────────────── Shared middleware ────────────────────────────
-
-const validate = (schema) => (req, res, next) => {
-  const { error, value } = schema.validate(req.body, { abortEarly: false, convert: true });
-  if (error) {
-    return res.status(422).json({
-      success: false,
-      message: "Dữ liệu đầu vào không hợp lệ",
-      errors: error.details.map((d) => d.message),
-    });
-  }
-  req.body = value;
-  next();
-};
-
-const validateQuery = (schema) => (req, res, next) => {
-  const { error, value } = schema.validate(req.query, { abortEarly: false, convert: true });
-  if (error) {
-    return res.status(422).json({
-      success: false,
-      message: "Bộ lọc không hợp lệ",
-      errors: error.details.map((d) => d.message),
-    });
-  }
-  req.query = value;
-  next();
-};
+const { validate, validateQuery } = require("../middlewares/validate.middleware");
 
 // ──────────────────────────── Schemas ────────────────────────────
 
@@ -75,6 +48,11 @@ const listPromosQuerySchema = Joi.object({
   isActive: Joi.boolean().optional(),
 });
 
+const myVouchersQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(10),
+});
+
 const validatePromoSchema = Joi.object({
   code: Joi.string().trim().required().messages({
     "string.empty": "Vui lòng nhập mã ưu đãi",
@@ -92,5 +70,6 @@ module.exports = {
   createPromoSchema,
   updatePromoSchema,
   listPromosQuerySchema,
+  myVouchersQuerySchema,
   validatePromoSchema,
 };

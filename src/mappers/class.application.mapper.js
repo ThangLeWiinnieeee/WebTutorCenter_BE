@@ -12,6 +12,7 @@ class ClassApplicationMapper {
       id: application._id,
       status: application.status,
       rejectionReason: application.rejectionReason ?? null,
+      cancellationReason: application.cancellationReason ?? null,
       createdAt: application.createdAt,
       updatedAt: application.updatedAt,
       classItem: {
@@ -89,6 +90,9 @@ class ClassApplicationMapper {
       tutorLevelPref: classItem.tutorLevelPref,
       provinceName: classItem.provinceName,
       districtName: classItem.districtName,
+      status: classItem.status || "open",
+      completedByPoster: Boolean(classItem.completedByPoster),
+      completedByTutor: Boolean(classItem.completedByTutor),
       createdAt: classItem.createdAt,
     };
 
@@ -107,6 +111,7 @@ class ClassApplicationMapper {
       id: application._id,
       status: application.status,
       rejectionReason: application.rejectionReason ?? null,
+      cancellationReason: application.cancellationReason ?? null,
       isUnlocked,
       createdAt: application.createdAt,
       updatedAt: application.updatedAt,

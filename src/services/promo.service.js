@@ -2,6 +2,8 @@ const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const promoRepository = require("../repositories/promo.repository");
 const { PromoMapper } = require("../mappers");
+const { buildPagination } = require("../helper/pagination.helper");
+const { generateUniqueCode } = require("../helper/code.helper");
 
 const normalizeCode = (code) => String(code || "").toUpperCase().trim();
 
@@ -48,24 +50,17 @@ const listPromos = async (query = {}) => {
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
 
-  const filter = {};
+  // Chỉ liệt kê mã toàn cục (ownerUserId null/thiếu) — ẩn voucher cá nhân khỏi trang admin
+  const filter = { ownerUserId: null };
   if (query.keyword) filter.code = { $regex: normalizeCode(query.keyword), $options: "i" };
   if (query.discountType) filter.discountType = query.discountType;
   if (query.isActive !== undefined) filter.isActive = query.isActive;
 
   const { items, totalItems } = await promoRepository.findMany(filter, { page, limit });
-  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
 
   return {
     promos: PromoMapper.toDTOs(items),
-    pagination: {
-      page,
-      limit,
-      totalItems,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPrevPage: page > 1,
-    },
+    pagination: buildPagination({ page, limit, totalItems }),
   };
 };
 
@@ -114,14 +109,20 @@ const computeDiscount = (promo, amount) => {
 };
 
 // Kiểm tra hợp lệ + tính giảm; throw AppError (422) nếu không dùng được.
+// `userId` (nếu có) dùng để kiểm tra quyền sở hữu voucher cá nhân.
 // Trả về document promo (mongoose) để service khác có thể tăng usedCount.
-const evaluatePromo = async (code, amount) => {
+const evaluatePromo = async (code, amount, userId = null) => {
   const normalized = normalizeCode(code);
   if (!normalized) throw new AppError("Vui lòng nhập mã ưu đãi", HTTP_STATUS.BAD_REQUEST);
 
   const promo = await promoRepository.findByCode(normalized);
   if (!promo || promo.deletedAt) throw new AppError("Mã ưu đãi không tồn tại", HTTP_STATUS.UNPROCESSABLE_ENTITY);
   if (!promo.isActive) throw new AppError("Mã ưu đãi đã ngừng áp dụng", HTTP_STATUS.UNPROCESSABLE_ENTITY);
+
+  // Voucher cá nhân chỉ chủ sở hữu mới dùng được; mã toàn cục (ownerUserId null) ai cũng dùng
+  if (promo.ownerUserId && String(promo.ownerUserId) !== String(userId)) {
+    throw new AppError("Mã này không thuộc về bạn", HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
 
   const now = Date.now();
   if (promo.startsAt && now < new Date(promo.startsAt).getTime()) {
@@ -139,8 +140,8 @@ const evaluatePromo = async (code, amount) => {
 };
 
 // Endpoint preview cho người dùng nhập mã ở màn báo giá (không tăng usedCount)
-const validatePromoForAmount = async (code, amount) => {
-  const { promo, discountAmount, finalAmount } = await evaluatePromo(code, amount);
+const validatePromoForAmount = async (code, amount, userId = null) => {
+  const { promo, discountAmount, finalAmount } = await evaluatePromo(code, amount, userId);
   return {
     code: promo.code,
     description: promo.description || "",
@@ -153,6 +154,62 @@ const validatePromoForAmount = async (code, amount) => {
   };
 };
 
+// ──────────────────────────── Voucher cá nhân (kho mã) ────────────────────────────
+
+// Cấu hình mã quà tặng khi hoàn thành lớp
+const REWARD_VOUCHER = {
+  discountType: "percent",
+  discountValue: 10,
+  maxDiscountAmount: 200000,
+  usageLimit: 1,
+  validityMonths: 2,
+};
+
+const generateUniqueVoucherCode = () =>
+  generateUniqueCode({
+    generate: () => `RW${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    exists: (code) => promoRepository.findByCode(code),
+    errorMessage: "Không tạo được mã giảm giá, vui lòng thử lại",
+  });
+
+// Tạo voucher cá nhân tặng cho 1 user (khi hoàn thành lớp). Trả document promo đã tạo.
+const generateRewardVoucher = async (ownerUserId, { classCode } = {}) => {
+  const code = await generateUniqueVoucherCode();
+  const expiresAt = new Date();
+  expiresAt.setMonth(expiresAt.getMonth() + REWARD_VOUCHER.validityMonths);
+
+  return await promoRepository.create({
+    code,
+    ownerUserId,
+    description: classCode ? `Quà hoàn thành lớp ${classCode}` : "Quà hoàn thành lớp học",
+    discountType: REWARD_VOUCHER.discountType,
+    discountValue: REWARD_VOUCHER.discountValue,
+    maxDiscountAmount: REWARD_VOUCHER.maxDiscountAmount,
+    usageLimit: REWARD_VOUCHER.usageLimit,
+    expiresAt,
+    isActive: true,
+  });
+};
+
+// Trạng thái hiển thị của một voucher trong kho mã
+const voucherStatus = (promo) => {
+  if (promo.usageLimit != null && (promo.usedCount || 0) >= promo.usageLimit) return "used";
+  if (!promo.isActive) return "expired";
+  if (promo.expiresAt && Date.now() > new Date(promo.expiresAt).getTime()) return "expired";
+  return "active";
+};
+
+const listMyVouchers = async (userId, query = {}) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const { items, totalItems } = await promoRepository.findByOwner(userId, { page, limit });
+
+  return {
+    vouchers: items.map((p) => ({ ...PromoMapper.toDTO(p), status: voucherStatus(p) })),
+    pagination: buildPagination({ page, limit, totalItems }),
+  };
+};
+
 module.exports = {
   createPromo,
   listPromos,
@@ -161,4 +218,6 @@ module.exports = {
   computeDiscount,
   evaluatePromo,
   validatePromoForAmount,
+  generateRewardVoucher,
+  listMyVouchers,
 };

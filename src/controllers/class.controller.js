@@ -82,6 +82,54 @@ const getClassDetail = async (req, res, next) => {
   }
 };
 
+const updateClass = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+    }
+    const classItem = await classService.updatePostedClass(id, req.user.id, req.body);
+    return successResponse(res, {
+      message: "Cập nhật bài đăng thành công",
+      data: { classItem },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteClass = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+    }
+    const result = await classService.deletePostedClass(id, req.user.id);
+    return successResponse(res, {
+      message: "Đã xóa bài đăng",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const completeClass = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+    }
+    const classItem = await classService.confirmClassCompletion(req.user.id, id);
+    return successResponse(res, {
+      message: "Đã xác nhận hoàn thành lớp",
+      data: { classItem },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getSubjects = async (req, res, next) => {
   try {
     const subjects = await classService.getSubjects();
@@ -113,6 +161,9 @@ module.exports = {
   getClassFeed,
   getMyPosts,
   getClassDetail,
+  updateClass,
+  deleteClass,
+  completeClass,
   getSubjects,
   getPricingConfig,
 };
