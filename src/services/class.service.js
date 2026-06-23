@@ -6,7 +6,7 @@ const tutorRepository = require("../repositories/tutor.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
 const { ClassMapper } = require("../mappers");
 const MESSAGE = require("../constants/message");
-const { SUBJECTS } = require("../constants/tutor");
+const subjectService = require("./subject.service");
 const classPricingRepository = require("../repositories/class.pricing.repository");
 const promoService = require("./promo.service");
 const promoRepository = require("../repositories/promo.repository");
@@ -215,6 +215,10 @@ const maskClassItem = async (classItem, user) => {
 };
 
 const createClass = async (payload, userId) => {
+  // Môn học phải thuộc danh mục đang bật (nguồn DB, không còn fix cứng)
+  if (!(await subjectService.isValidSubjectName(payload.subject))) {
+    throw new AppError(MESSAGE.SUBJECT_NOT_FOUND, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
   const { data, promoDoc } = await buildClassData(payload, userId);
   const created = await classRepository.create(data);
   // Tăng số lượt đã dùng của mã sau khi tạo lớp thành công
@@ -224,16 +228,19 @@ const createClass = async (payload, userId) => {
   return await maskClassItem(created, { id: userId });
 };
 
-const normalizeSubjectFilter = (subject) => {
+const normalizeSubjectFilter = (subject, names = []) => {
   if (!subject) return "";
   const normalized = subject.trim().toLowerCase();
-  const matchedSubject = SUBJECTS.find((item) => item.toLowerCase() === normalized);
+  const matchedSubject = names.find((item) => item.toLowerCase() === normalized);
   return matchedSubject || subject.trim();
 };
 
 const getClasses = async (query, user) => {
   const filters = {};
-  if (query.subject) filters.subject = normalizeSubjectFilter(query.subject);
+  if (query.subject) {
+    const activeNames = await subjectService.getActiveSubjectNames();
+    filters.subject = normalizeSubjectFilter(query.subject, activeNames);
+  }
   if (query.provinceCode) filters.provinceCode = query.provinceCode;
   if (query.districtCode) filters.districtCode = query.districtCode;
 
@@ -455,7 +462,7 @@ const confirmClassCompletion = async (userId, classId) => {
 };
 
 const getSubjects = async () => {
-  return SUBJECTS;
+  return await subjectService.getActiveSubjectNames();
 };
 
 const getPricingConfig = async () => {

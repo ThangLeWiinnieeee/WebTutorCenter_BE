@@ -49,7 +49,8 @@ const buildAvailabilitySlots = () => {
 };
 
 const buildPayload = (subject, province, district, index) => {
-  const summary = `${subject} - ${pick(SAMPLE_TOPICS)}`;
+  // summary chỉ là chủ đề, không lặp lại tên môn (tên môn đã có ở trường subject).
+  const summary = pick(SAMPLE_TOPICS);
   const description = `Lớp ${subject} cần gia sư hỗ trợ học viên theo mục tiêu cụ thể. Ưu tiên gia sư có phương pháp rõ ràng, theo sát tiến độ và hỗ trợ chữa bài định kỳ.`;
 
   return {

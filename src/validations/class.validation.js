@@ -1,5 +1,5 @@
 const Joi = require("joi");
-const { SUBJECTS, GENDER_OPTIONS, TUTOR_LEVEL_OPTIONS, DAYS_OF_WEEK, PHONE_REGEX } = require("../constants/tutor");
+const { GENDER_OPTIONS, TUTOR_LEVEL_OPTIONS, DAYS_OF_WEEK, PHONE_REGEX } = require("../constants/tutor");
 const { validateBody, validateQuery } = require("../middlewares/validate.middleware");
 
 const availabilitySlotSchema = Joi.object({
@@ -13,9 +13,8 @@ const baseClassSchema = Joi.object({
   contactPhone: Joi.string().pattern(PHONE_REGEX).required(),
   summary: Joi.string().trim().min(10).max(200).required(),
   description: Joi.string().trim().min(20).max(2000).required(),
-  subject: Joi.string()
-    .valid(...SUBJECTS)
-    .required(),
+  // Danh mục môn do admin quản lý trong DB → membership được kiểm tra ở class.service.
+  subject: Joi.string().trim().max(100).required(),
   studentGender: Joi.string()
     .valid(...GENDER_OPTIONS)
     .required(),

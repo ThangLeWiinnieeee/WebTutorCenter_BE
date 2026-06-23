@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { SUBJECTS, GENDER_OPTIONS, TUTOR_LEVEL_OPTIONS, DAYS_OF_WEEK, PHONE_REGEX } = require("../constants/tutor");
+const { GENDER_OPTIONS, TUTOR_LEVEL_OPTIONS, DAYS_OF_WEEK, PHONE_REGEX } = require("../constants/tutor");
 
 // Vòng đời bài đăng tìm gia sư:
 // - open: đang mở, hiển thị ở feed/danh sách để gia sư nhận.
@@ -64,9 +64,10 @@ const classSchema = new mongoose.Schema(
       maxlength: 2000,
     },
     subject: {
+      // Danh mục môn do admin quản lý trong DB → validate ở service layer, không enum cứng.
       type: String,
-      enum: SUBJECTS,
       required: true,
+      trim: true,
       index: true,
     },
     studentGender: {

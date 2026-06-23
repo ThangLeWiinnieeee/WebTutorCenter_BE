@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 const {
-  SUBJECTS,
   OCCUPATION_STATUS,
   TUTOR_STATUS,
   DAYS_OF_WEEK,
@@ -43,9 +42,9 @@ const tutorSchema = new mongoose.Schema(
       match: [PHONE_REGEX, "Số điện thoại không hợp lệ (VD: 0912345678 hoặc 84912345678)"],
     },
     subjects: {
+      // Danh mục môn do admin quản lý trong DB → validate ở service layer, không enum cứng.
       type: [String],
       required: [true, "Danh sách môn học là bắt buộc"],
-      enum: { values: SUBJECTS, message: "Môn học '{VALUE}' không hợp lệ" },
       validate: {
         validator: (arr) => Array.isArray(arr) && arr.length >= 1,
         message: "Phải chọn ít nhất 1 môn học",
