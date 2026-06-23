@@ -4,10 +4,10 @@ const HTTP_STATUS = require("../constants/status");
 
 const getNotifications = async (req, res, next) => {
   try {
-    const notifications = await notificationService.getUserNotifications(req.user.id);
+    const result = await notificationService.getUserNotifications(req.user.id, req.query);
     return successResponse(res, {
       message: "Lấy danh sách thông báo thành công",
-      data: { notifications },
+      data: result,
     });
   } catch (error) {
     next(error);

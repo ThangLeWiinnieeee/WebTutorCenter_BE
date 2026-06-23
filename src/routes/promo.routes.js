@@ -10,11 +10,15 @@ const {
   createPromoSchema,
   updatePromoSchema,
   listPromosQuerySchema,
+  myVouchersQuerySchema,
   validatePromoSchema,
 } = require("../validations/promo.validation");
 
 // Người dùng đã đăng nhập kiểm tra/áp dụng mã ở màn báo giá
 router.post("/validate", authMiddleware, validate(validatePromoSchema), promoController.validatePromo);
+
+// Kho mã giảm giá cá nhân của người dùng
+router.get("/mine", authMiddleware, validateQuery(myVouchersQuerySchema), promoController.getMyVouchers);
 
 // Admin CRUD mã ưu đãi
 router.get("/", authMiddleware, roleMiddleware("admin"), validateQuery(listPromosQuerySchema), promoController.listPromos);

@@ -2,14 +2,14 @@ const mongoose = require("mongoose");
 const Tutor = require("../src/models/tutor.model");
 const User = require("../src/models/user.model");
 const { TUTOR_STATUS, OCCUPATION_STATUS } = require("../src/constants/tutor");
-const SUBJECTS = require("../src/constants/tutor/subject");
+const SUBJECTS = require("../src/constants/subject");
 
 const seedTutorDemoData = async () => {
   try {
     console.log("🌱 Seeding tutor demo data...");
 
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/webtutorcenter", {
+    await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/webtutorcenter", {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

@@ -21,7 +21,7 @@ const { hashPassword } = require("../src/utils/hash");
 const ROLES = require("../src/constants/role");
 const ACCOUNT_TYPE = require("../src/constants/accountType");
 const { TUTOR_STATUS } = require("../src/constants/tutor");
-const OCCUPATION_STATUS = require("../src/constants/tutor/occupationStatus");
+const OCCUPATION_STATUS = require("../src/constants/occupationStatus");
 
 const DEFAULT_PASSWORD = "Password123";
 

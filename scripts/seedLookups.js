@@ -6,7 +6,7 @@ const seedLookups = async () => {
     console.log("🌱 Seeding lookup data...");
 
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/webtutorcenter", {
+    await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/webtutorcenter", {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

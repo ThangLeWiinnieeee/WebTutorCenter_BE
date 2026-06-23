@@ -56,11 +56,23 @@ const deleteById = (id) => Promo.findOneAndDelete({ _id: id, deletedAt: { $ne: n
 const incrementUsed = (id) =>
   Promo.findByIdAndUpdate(id, { $inc: { usedCount: 1 } }, { new: true });
 
+// Voucher cá nhân của một user (kho mã), mới nhất trước
+const findByOwner = async (ownerUserId, { page = 1, limit = 10 }) => {
+  const skip = (Math.max(1, page) - 1) * limit;
+  const filter = { ownerUserId, deletedAt: null };
+  const [items, totalItems] = await Promise.all([
+    Promo.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Promo.countDocuments(filter),
+  ]);
+  return { items, totalItems };
+};
+
 module.exports = {
   create,
   findById,
   findByCode,
   findMany,
+  findByOwner,
   updateById,
   softDelete,
   restore,

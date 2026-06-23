@@ -1,4 +1,5 @@
 const tutorService = require("../services/tutor.service");
+const profileChangeRequestService = require("../services/profileChangeRequest.service");
 const { successResponse } = require("../utils/response");
 const AppError = require("../utils/AppError");
 const MESSAGE = require("../constants/message");
@@ -147,6 +148,34 @@ const getTutorById = async (req, res, next) => {
   }
 };
 
+// Gia sư gửi yêu cầu đổi thông tin hồ sơ (chờ admin duyệt)
+const requestProfileChange = async (req, res, next) => {
+  try {
+    const request = await profileChangeRequestService.requestChange(req.user.id, req.body);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.CREATED,
+      message: MESSAGE.PROFILE_CHANGE_REQUEST_SUCCESS,
+      data: { request },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+// Lấy yêu cầu đổi thông tin đang chờ duyệt của gia sư (nếu có)
+const getMyProfileChangeRequest = async (req, res, next) => {
+  try {
+    const request = await profileChangeRequestService.getMyPending(req.user.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.PROFILE_CHANGE_GET_SUCCESS,
+      data: { request },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
 module.exports = {
   registerTutor,
   getTutorProfile,
@@ -156,4 +185,6 @@ module.exports = {
   getNewTutors,
   searchActiveTutors,
   getTutorById,
+  requestProfileChange,
+  getMyProfileChangeRequest,
 };

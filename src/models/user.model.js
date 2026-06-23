@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const ROLES = require("../constants/role");
 const ACCOUNT_TYPE = require("../constants/accountType");
+const { PHONE_REGEX, GENDER_OPTIONS } = require("../constants/tutor");
 
 const userSchema = new mongoose.Schema(
   {
@@ -39,11 +40,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
       trim: true,
-      match: [/^(0[3|5|7|8|9])+([0-9]{8})$/, "Số điện thoại không hợp lệ"],
+      match: [PHONE_REGEX, "Số điện thoại không hợp lệ"],
     },
     gender: {
       type: String,
-      enum: ["male", "female", "other", null],
+      enum: [...GENDER_OPTIONS, null],
       default: null,
     },
     dateOfBirth: {

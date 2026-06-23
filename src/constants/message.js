@@ -45,6 +45,7 @@ const MESSAGE = {
 
   // Validation
   VALIDATION_ERROR: "Dữ liệu đầu vào không hợp lệ",
+  QUERY_VALIDATION_ERROR: "Bộ lọc không hợp lệ",
 
   // Tutor
   TUTOR_REGISTER_SUCCESS: "Đăng ký làm gia sư thành công, vui lòng chờ phê duyệt",
@@ -75,6 +76,27 @@ const MESSAGE = {
   CLASS_APPLICATION_STATS_SUCCESS: "Lấy thống kê đơn đăng ký nhận lớp thành công",
   CLASS_APPLICATION_APPROVE_SUCCESS: "Đã duyệt gia sư cho lớp thành công",
   CLASS_APPLICATION_REJECT_SUCCESS: "Đã từ chối đơn đăng ký nhận lớp",
+
+  // Hủy đơn nhận lớp (gia sư rút đơn)
+  CLASS_APPLICATION_CANCEL_SUCCESS: "Đã hủy đơn nhận lớp",
+  CLASS_APPLICATION_CANCEL_REQUEST_SUCCESS: "Đã gửi yêu cầu hủy lớp, vui lòng chờ admin duyệt",
+  CLASS_APPLICATION_CANCEL_INVALID_STATUS: "Không thể hủy đơn ở trạng thái hiện tại",
+  CLASS_APPLICATION_CANCELLATION_LIST_SUCCESS: "Lấy danh sách đơn hủy thành công",
+  CLASS_APPLICATION_CANCEL_NOT_REQUESTED: "Đơn này không ở trạng thái chờ hủy",
+  CLASS_APPLICATION_CANCEL_APPROVE_SUCCESS: "Đã duyệt hủy đơn nhận lớp",
+  CLASS_APPLICATION_CANCEL_REJECT_SUCCESS: "Đã từ chối yêu cầu hủy đơn",
+
+  // Profile change request (gia sư đổi hồ sơ — chờ admin duyệt)
+  PROFILE_CHANGE_REQUEST_SUCCESS: "Đã gửi yêu cầu đổi thông tin, vui lòng chờ admin duyệt",
+  PROFILE_CHANGE_GET_SUCCESS: "Lấy yêu cầu đổi thông tin thành công",
+  PROFILE_CHANGE_LIST_SUCCESS: "Lấy danh sách yêu cầu đổi thông tin thành công",
+  PROFILE_CHANGE_APPROVE_SUCCESS: "Đã duyệt yêu cầu đổi thông tin",
+  PROFILE_CHANGE_REJECT_SUCCESS: "Đã từ chối yêu cầu đổi thông tin",
+  PROFILE_CHANGE_NOT_FOUND: "Không tìm thấy yêu cầu đổi thông tin",
+  PROFILE_CHANGE_NOT_PENDING: "Yêu cầu này không ở trạng thái chờ duyệt",
+  PROFILE_CHANGE_ALREADY_PENDING: "Bạn đang có một yêu cầu đổi thông tin chờ duyệt",
+  PROFILE_CHANGE_TUTOR_NOT_APPROVED: "Chỉ gia sư đã được duyệt mới có thể đổi hồ sơ",
+  PROFILE_CHANGE_EMPTY: "Không có thông tin hợp lệ để cập nhật",
 
   // Class
   QUOTE_SUCCESS: "Tính học phí lớp mới thành công",

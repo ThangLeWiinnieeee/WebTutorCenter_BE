@@ -8,6 +8,24 @@ const findByUserId = async (userId) => {
   return Notification.find({ userId }).sort({ createdAt: -1 }).lean();
 };
 
+// Một trang thông báo của người dùng, mới nhất trước.
+const findByUserIdPage = async ({ userId, page = 1, limit = 10 }) => {
+  const skip = (Math.max(1, page) - 1) * limit;
+  return Notification.find({ userId })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+};
+
+const countByUserId = async (userId) => {
+  return Notification.countDocuments({ userId });
+};
+
+const countUnread = async (userId) => {
+  return Notification.countDocuments({ userId, read: false });
+};
+
 const markAsRead = async (notificationId, userId) => {
   return Notification.findOneAndUpdate(
     { _id: notificationId, userId },
@@ -27,6 +45,9 @@ const markAllAsRead = async (userId) => {
 module.exports = {
   create,
   findByUserId,
+  findByUserIdPage,
+  countByUserId,
+  countUnread,
   markAsRead,
   markAllAsRead,
 };

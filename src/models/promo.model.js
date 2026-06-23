@@ -10,6 +10,13 @@ const promoSchema = new mongoose.Schema(
       trim: true,
       maxlength: 50,
     },
+    // null = mã ưu đãi toàn cục (admin tạo); có giá trị = voucher cá nhân trong "kho mã" của 1 user
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
     description: {
       type: String,
       trim: true,

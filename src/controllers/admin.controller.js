@@ -177,11 +177,11 @@ const getDashboardStats = async (req, res, next) => {
 
 const getPendingTutors = async (req, res, next) => {
   try {
-    const tutors = await adminService.getPendingTutors();
+    const result = await adminService.getPendingTutors(req.query);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
       message: "Lấy danh sách gia sư chờ duyệt thành công",
-      data: { tutors },
+      data: result,
     });
   } catch (error) {
     handleError(error, res, next);
@@ -218,11 +218,11 @@ const rejectTutor = async (req, res, next) => {
 
 const getClassApplications = async (req, res, next) => {
   try {
-    const applications = await adminService.getClassApplications(req.query);
+    const result = await adminService.getClassApplications(req.query);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
       message: MESSAGE.CLASS_APPLICATION_LIST_SUCCESS,
-      data: { applications },
+      data: result,
     });
   } catch (error) {
     handleError(error, res, next);
@@ -268,6 +268,88 @@ const rejectClassApplication = async (req, res, next) => {
   }
 };
 
+// ──────────────────────────── Hủy đơn nhận lớp (gia sư rút đơn) ────────────────────────────
+
+const getApplicationCancellations = async (req, res, next) => {
+  try {
+    const result = await adminService.getApplicationCancellations(req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICATION_CANCELLATION_LIST_SUCCESS,
+      data: result,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const approveCancellation = async (req, res, next) => {
+  try {
+    const application = await adminService.approveCancellation(req.params.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICATION_CANCEL_APPROVE_SUCCESS,
+      data: { application },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const rejectCancellation = async (req, res, next) => {
+  try {
+    const application = await adminService.rejectCancellation(req.params.id, req.body.rejectionReason);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICATION_CANCEL_REJECT_SUCCESS,
+      data: { application },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+// ──────────────────────────── Profile change requests (gia sư đổi hồ sơ) ────────────────────────────
+
+const getProfileChanges = async (req, res, next) => {
+  try {
+    const result = await adminService.getProfileChangeRequests(req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.PROFILE_CHANGE_LIST_SUCCESS,
+      data: result,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const approveProfileChange = async (req, res, next) => {
+  try {
+    const request = await adminService.approveProfileChange(req.params.id, req.user.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.PROFILE_CHANGE_APPROVE_SUCCESS,
+      data: { request },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const rejectProfileChange = async (req, res, next) => {
+  try {
+    const request = await adminService.rejectProfileChange(req.params.id, req.body.rejectionReason, req.user.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.PROFILE_CHANGE_REJECT_SUCCESS,
+      data: { request },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
 module.exports = {
   getAdminUsers,
   updateAdminUser,
@@ -288,4 +370,10 @@ module.exports = {
   getClassApplicationStats,
   approveClassApplication,
   rejectClassApplication,
+  getProfileChanges,
+  approveProfileChange,
+  rejectProfileChange,
+  getApplicationCancellations,
+  approveCancellation,
+  rejectCancellation,
 };

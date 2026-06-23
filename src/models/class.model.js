@@ -1,6 +1,17 @@
 const mongoose = require("mongoose");
 const { SUBJECTS, GENDER_OPTIONS, TUTOR_LEVEL_OPTIONS, DAYS_OF_WEEK, PHONE_REGEX } = require("../constants/tutor");
 
+// Vòng đời bài đăng tìm gia sư:
+// - open: đang mở, hiển thị ở feed/danh sách để gia sư nhận.
+// - matched: đã có gia sư được duyệt nhận lớp (ẩn khỏi feed, vẫn còn trong "bài đăng của tôi").
+// - expired: đã đến thời gian bắt đầu mà chưa có gia sư nhận (ẩn khỏi feed, vẫn còn trong "bài đăng của tôi").
+const CLASS_STATUS = {
+  OPEN: "open",
+  MATCHED: "matched",
+  EXPIRED: "expired",
+  COMPLETED: "completed",
+};
+
 const availabilitySlotSchema = new mongoose.Schema(
   {
     day: {
@@ -154,6 +165,26 @@ const classSchema = new mongoose.Schema(
       type: Number,
       min: 0,
     },
+    // Trạng thái vòng đời bài đăng (xem CLASS_STATUS)
+    status: {
+      type: String,
+      enum: Object.values(CLASS_STATUS),
+      default: CLASS_STATUS.OPEN,
+      index: true,
+    },
+    // Xác nhận hoàn thành lớp từ hai phía (chỉ áp dụng khi lớp đã matched)
+    completedByPoster: {
+      type: Boolean,
+      default: false,
+    },
+    completedByTutor: {
+      type: Boolean,
+      default: false,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
     // Xóa mềm: bài đăng vào thùng rác (ẩn khỏi mọi danh sách) thay vì xóa hẳn
     deletedAt: {
       type: Date,
@@ -171,4 +202,7 @@ const classSchema = new mongoose.Schema(
 
 classSchema.index({ createdAt: -1 });
 
-module.exports = mongoose.model("Class", classSchema);
+const Class = mongoose.model("Class", classSchema);
+
+module.exports = Class;
+module.exports.CLASS_STATUS = CLASS_STATUS;
