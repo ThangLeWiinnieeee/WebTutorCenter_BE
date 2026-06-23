@@ -1,6 +1,6 @@
 const Joi = require("joi");
 const ROLES = require("../constants/role");
-const { SUBJECTS, PHONE_REGEX, GENDER_OPTIONS } = require("../constants/tutor");
+const { PHONE_REGEX, GENDER_OPTIONS } = require("../constants/tutor");
 const { validate, validateQuery } = require("../middlewares/validate.middleware");
 
 // ──────────────────────────── User schemas ────────────────────────────
@@ -86,7 +86,7 @@ const adminListClassesQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(10),
   keyword: Joi.string().trim().allow("").max(100).optional(),
-  subject: Joi.string().valid(...SUBJECTS).allow("").optional(),
+  subject: Joi.string().trim().allow("").max(100).optional(),
 });
 
 // ──────────────────────────── Trash (thùng rác) schemas ────────────────────────────

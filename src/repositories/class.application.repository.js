@@ -1,6 +1,8 @@
 const { ClassApplication, CLASS_APPLICATION_STATUS } = require("../models/class.application.model");
 
-const POPULATE_CLASS = "classCode subject locationLabel feePerSession feePerMonth sessionsPerWeek minutesPerSession createdBy startDate status";
+// Đầy đủ các field bài đăng mà mapper/khu vực admin cần để hiển thị chi tiết.
+const POPULATE_CLASS =
+  "classCode subject summary description locationLabel provinceCode districtCode provinceName districtName contactPhone feePerSession feePerMonth finalFeePerMonth promoCode promoDiscount sessionsPerWeek minutesPerSession studentCount studentGender startDate availabilitySlots tutorGenderPref tutorLevelPref status createdBy createdAt";
 const POPULATE_TUTOR_USER = "fullName email avatar";
 
 const create = async (data) => {

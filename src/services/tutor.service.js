@@ -1,11 +1,13 @@
 const tutorRepository = require("../repositories/tutor.repository");
 const userRepository = require("../repositories/user.repository");
+const subjectService = require("./subject.service");
 const notificationService = require("./notification.service");
 const { NOTIFICATION_TYPES } = require("../models/notification.model");
 const AppError = require("../utils/AppError");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
 const { TUTOR_STATUS } = require("../constants/tutor");
+const OCCUPATION_STATUS = require("../constants/occupationStatus");
 const { TutorMapper } = require("../mappers");
 
 const registerTutor = async (userId, tutorData) => {
@@ -17,6 +19,37 @@ const registerTutor = async (userId, tutorData) => {
   const existing = await tutorRepository.findByUserId(userId);
   if (existing) {
     throw new AppError(MESSAGE.TUTOR_ALREADY_REGISTERED, HTTP_STATUS.CONFLICT);
+  }
+
+  // Môn học phải thuộc danh mục đang bật (nguồn DB, không còn enum cứng)
+  const subjects = Array.isArray(tutorData.subjects) ? tutorData.subjects : [];
+  if (subjects.length === 0) {
+    throw new AppError(MESSAGE.PROFILE_CHANGE_INVALID_SUBJECTS, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+  const activeNames = await subjectService.getActiveSubjectNames();
+  const activeSet = new Set(activeNames.map((n) => n.toLowerCase()));
+  const allValid = subjects.every((s) => activeSet.has(String(s).trim().toLowerCase()));
+  if (!allValid) {
+    throw new AppError(MESSAGE.PROFILE_CHANGE_INVALID_SUBJECTS, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+
+  // Năm tốt nghiệp gắn với tình trạng nghề nghiệp:
+  // - Sinh viên: không có năm tốt nghiệp → ép null
+  // - Đã tốt nghiệp / giáo viên: BẮT BUỘC có năm hợp lệ (1950..nay)
+  if (tutorData.occupationStatus === OCCUPATION_STATUS.STUDENT) {
+    tutorData.graduationYear = null;
+  } else {
+    const year = Number(tutorData.graduationYear);
+    const currentYear = new Date().getFullYear();
+    if (
+      tutorData.graduationYear == null ||
+      !Number.isInteger(year) ||
+      year < 1950 ||
+      year > currentYear
+    ) {
+      throw new AppError(MESSAGE.PROFILE_CHANGE_INVALID_GRAD_YEAR, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    }
+    tutorData.graduationYear = year;
   }
 
   const tutor = await tutorRepository.create({ userId, ...tutorData });

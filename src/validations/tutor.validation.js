@@ -1,6 +1,5 @@
 const Joi = require("joi");
 const {
-  SUBJECTS,
   OCCUPATION_STATUS,
   PHONE_REGEX,
   TIME_REGEX,
@@ -34,13 +33,9 @@ const registerTutorSchema = Joi.object({
       "string.empty": "Số điện thoại liên hệ không được để trống",
     }),
 
+  // Danh mục môn do admin quản lý trong DB → membership được kiểm tra ở tutor.service.
   subjects: Joi.array()
-    .items(
-      Joi.string()
-        .trim()
-        .valid(...SUBJECTS)
-        .messages({ "any.only": "Môn học '{#value}' không hợp lệ" })
-    )
+    .items(Joi.string().trim().max(100))
     .min(1)
     .required()
     .messages({

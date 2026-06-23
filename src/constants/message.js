@@ -97,6 +97,9 @@ const MESSAGE = {
   PROFILE_CHANGE_ALREADY_PENDING: "Bạn đang có một yêu cầu đổi thông tin chờ duyệt",
   PROFILE_CHANGE_TUTOR_NOT_APPROVED: "Chỉ gia sư đã được duyệt mới có thể đổi hồ sơ",
   PROFILE_CHANGE_EMPTY: "Không có thông tin hợp lệ để cập nhật",
+  PROFILE_CHANGE_INVALID_SUBJECTS: "Danh sách môn học không hợp lệ (phải chọn ít nhất 1 môn trong danh mục)",
+  PROFILE_CHANGE_SUBJECTS_REMOVE_FORBIDDEN: "Chỉ được bổ sung thêm môn học, không được bỏ môn đã đăng ký",
+  PROFILE_CHANGE_INVALID_GRAD_YEAR: "Năm tốt nghiệp là bắt buộc và phải hợp lệ (từ 1950 đến năm hiện tại)",
 
   // Class
   QUOTE_SUCCESS: "Tính học phí lớp mới thành công",
@@ -106,6 +109,11 @@ const MESSAGE = {
   MY_POSTS_SUCCESS: "Lấy danh sách bài đăng của bạn thành công",
   DETAIL_SUCCESS: "Lấy chi tiết lớp mới thành công",
   SUBJECT_LIST_SUCCESS: "Lấy danh sách môn học thành công",
+  SUBJECT_CREATE_SUCCESS: "Thêm môn học thành công",
+  SUBJECT_UPDATE_SUCCESS: "Cập nhật môn học thành công",
+  SUBJECT_NOT_FOUND: "Không tìm thấy môn học",
+  SUBJECT_NAME_REQUIRED: "Tên môn học là bắt buộc",
+  SUBJECT_ALREADY_EXISTS: "Môn học này đã tồn tại",
   PRICING_CONFIG_SUCCESS: "Lấy cấu hình học phí thành công",
   PRICING_CONFIG_MISSING: "Chưa cấu hình học phí, vui lòng chạy seed pricing",
   CLASS_NOT_FOUND: "Không tìm thấy lớp mới",
