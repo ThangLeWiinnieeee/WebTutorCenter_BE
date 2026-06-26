@@ -1,4 +1,4 @@
-const AppError = require("../utils/AppError");
+const AppError = require("./AppError");
 const HTTP_STATUS = require("../constants/status");
 
 // Sinh một mã duy nhất: thử tối đa `attempts` lần, mỗi lần tạo ứng viên bằng `generate()`

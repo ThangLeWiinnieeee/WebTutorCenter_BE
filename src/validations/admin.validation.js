@@ -72,7 +72,10 @@ const rejectClassApplicationSchema = Joi.object({
 const adminListClassApplicationsQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(10),
-  status: Joi.string().valid("pending", "approved", "rejected", "all").default("pending"),
+  // "selected" = gia sư người đăng đã chọn, đang chờ admin duyệt (hàng chờ chính của admin)
+  status: Joi.string()
+    .valid("pending", "selected", "approved", "rejected", "all")
+    .default("selected"),
 });
 
 const adminListPendingTutorsQuerySchema = Joi.object({

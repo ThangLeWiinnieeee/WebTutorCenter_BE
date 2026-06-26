@@ -29,6 +29,13 @@ router.post(
   validateBody(cancelApplicationSchema),
   classApplicationController.cancelApplication
 );
+// Người đăng xem danh sách gia sư ứng tuyển + chọn 1 gia sư (service tự kiểm tra quyền sở hữu)
+router.get("/:id/applicants", authMiddleware, classApplicationController.getApplicants);
+router.post(
+  "/:id/applicants/:applicationId/select",
+  authMiddleware,
+  classApplicationController.selectApplicant
+);
 router.get("/mine", authMiddleware, roleMiddleware("tutor"), classApplicationController.getMyApplications);
 router.get("/feed", authMiddleware, roleMiddleware("tutor"), classController.getClassFeed);
 router.get("/my-posts", authMiddleware, classController.getMyPosts);

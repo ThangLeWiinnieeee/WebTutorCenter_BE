@@ -37,6 +37,38 @@ const getMyApplications = async (req, res, next) => {
   }
 };
 
+// Người đăng: danh sách gia sư ứng tuyển bài đăng của mình
+const getApplicants = async (req, res, next) => {
+  try {
+    const result = await classApplicationService.getApplicantsForPoster(req.user.id, req.params.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICANTS_LIST_SUCCESS,
+      data: result,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+// Người đăng: chọn 1 gia sư từ danh sách ứng tuyển
+const selectApplicant = async (req, res, next) => {
+  try {
+    const application = await classApplicationService.selectApplicant(
+      req.user.id,
+      req.params.id,
+      req.params.applicationId,
+    );
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICANT_SELECT_SUCCESS,
+      data: { application },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
 const cancelApplication = async (req, res, next) => {
   try {
     const application = await classApplicationService.cancelApplication(
@@ -58,4 +90,10 @@ const cancelApplication = async (req, res, next) => {
   }
 };
 
-module.exports = { applyForClass, getMyApplications, cancelApplication };
+module.exports = {
+  applyForClass,
+  getApplicants,
+  selectApplicant,
+  getMyApplications,
+  cancelApplication,
+};

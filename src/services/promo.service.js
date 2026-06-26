@@ -2,8 +2,8 @@ const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const promoRepository = require("../repositories/promo.repository");
 const { PromoMapper } = require("../mappers");
-const { buildPagination } = require("../helper/pagination.helper");
-const { generateUniqueCode } = require("../helper/code.helper");
+const { buildPagination } = require("../utils/pagination");
+const { generateUniqueCode } = require("../utils/code");
 
 const normalizeCode = (code) => String(code || "").toUpperCase().trim();
 

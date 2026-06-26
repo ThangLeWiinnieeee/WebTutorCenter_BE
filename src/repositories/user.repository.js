@@ -43,6 +43,12 @@ const verifyUser = async (userId) => {
   return await User.findByIdAndUpdate(userId, { isVerified: true }, { new: true });
 };
 
+// Xóa hẳn tài khoản local chưa xác thực (dữ liệu sót lại từ luồng đăng ký cũ),
+// để email được giải phóng cho luồng đăng ký mới (lưu tạm + xác thực OTP).
+const hardDeleteUnverifiedLocal = async (userId) => {
+  return await User.findOneAndDelete({ _id: userId, isVerified: false });
+};
+
 const updatePassword = async (userId, hashedPassword) => {
   return await User.findByIdAndUpdate(userId, { password: hashedPassword }, { new: true });
 };
@@ -122,6 +128,7 @@ module.exports = {
   updateRefreshToken,
   findByRefreshToken,
   verifyUser,
+  hardDeleteUnverifiedLocal,
   updatePassword,
   updateProfile,
   updateRole,

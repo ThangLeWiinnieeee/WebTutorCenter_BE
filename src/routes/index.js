@@ -12,6 +12,7 @@ const subjectRoutes = require("./subject.routes");
 const adminRoutes = require("./admin.routes");
 const settingsRoutes = require("./settings.routes");
 const promoRoutes = require("./promo.routes");
+const reviewRoutes = require("./review.routes");
 
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
@@ -24,5 +25,6 @@ router.use("/subjects", subjectRoutes);
 router.use("/admin", adminRoutes);
 router.use("/settings", settingsRoutes);
 router.use("/promos", promoRoutes);
+router.use("/reviews", reviewRoutes);
 
 module.exports = router;

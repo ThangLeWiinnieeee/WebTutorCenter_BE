@@ -47,7 +47,7 @@ const ROLES = require("../src/constants/role");
 const ACCOUNT_TYPE = require("../src/constants/accountType");
 const OCCUPATION_STATUS = require("../src/constants/occupationStatus");
 const { TUTOR_STATUS, GENDER_OPTIONS, DAYS_OF_WEEK } = require("../src/constants/tutor");
-const SUBJECTS = require("../src/constants/subject");
+const SUBJECTS = require("./subjectsSeedData");
 
 const DEFAULT_PASSWORD = "Password123";
 
@@ -519,7 +519,8 @@ const seedClasses = async (usersByIdx, areas, cfg, promoByCode, approvedTutorIdx
       classCode,
       createdBy: poster._id,
       contactPhone: poster.phone,
-      summary: `${subj} - ${pick(CLASS_TOPICS)}`,
+      // Không lặp tên môn ở đây: tiêu đề thẻ đã hiển thị "{môn} - {summary}".
+      summary: pick(CLASS_TOPICS),
       description: `Cần tìm gia sư môn ${subj} hỗ trợ học viên theo mục tiêu cụ thể. Ưu tiên gia sư có phương pháp rõ ràng, theo sát tiến độ, chữa bài định kỳ và phản hồi thường xuyên với phụ huynh.`,
       subject: subj,
       studentGender: pick(GENDER_OPTIONS),
@@ -734,6 +735,15 @@ const seedProfileChangeRequests = async (usersByIdx, tutorByUserIdx, adminId, se
 
 const main = async () => {
   await connect();
+
+  // Reset các collection lớp & đơn nhận lớp để tránh dữ liệu "mồ côi":
+  // class được seed lại sinh _id mới, nếu không xoá đơn cũ thì classId của đơn
+  // sẽ trỏ tới class không còn tồn tại (populate trả null → UI hiện trống).
+  const removedApps = await ClassApplication.deleteMany({});
+  const removedClasses = await Class.deleteMany({});
+  console.log(
+    `→ Reset: đã xoá ${removedClasses.deletedCount} lớp và ${removedApps.deletedCount} đơn nhận lớp cũ trước khi seed.`,
+  );
 
   const areas = await loadAreas();
   console.log(`• Có ${areas.length} tỉnh/thành mẫu để gán khu vực.`);

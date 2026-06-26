@@ -4,6 +4,8 @@ const classRepository = require("../repositories/class.repository");
 const promoRepository = require("../repositories/promo.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
 const profileChangeRequestRepository = require("../repositories/profileChangeRequest.repository");
+const reviewRepository = require("../repositories/review.repository");
+const reviewService = require("./review.service");
 const notificationService = require("./notification.service");
 const { NOTIFICATION_TYPES } = require("../models/notification.model");
 const { CLASS_APPLICATION_STATUS } = require("../models/class.application.model");
@@ -21,8 +23,9 @@ const {
   ClassMapper,
   PromoMapper,
   ProfileChangeRequestMapper,
+  ReviewMapper,
 } = require("../mappers");
-const { buildPagination } = require("../helper/pagination.helper");
+const { buildPagination } = require("../utils/pagination");
 
 // ──────────────────────────── User admin ────────────────────────────
 
@@ -153,8 +156,9 @@ const getClassApplications = async (query = {}) => {
   ]);
 
   const counts = {
-    all: grouped.pending + grouped.approved + grouped.rejected,
+    all: grouped.pending + grouped.selected + grouped.approved + grouped.rejected,
     pending: grouped.pending,
+    selected: grouped.selected,
     approved: grouped.approved,
     rejected: grouped.rejected,
   };
@@ -174,8 +178,9 @@ const getClassApplicationStats = async () => {
 const approveClassApplication = async (applicationId) => {
   const application = await classApplicationRepository.findById(applicationId);
   if (!application) throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
-  if (application.status !== CLASS_APPLICATION_STATUS.PENDING) {
-    throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_PENDING, HTTP_STATUS.BAD_REQUEST);
+  // Admin chỉ duyệt gia sư đã được người đăng chọn (selected)
+  if (application.status !== CLASS_APPLICATION_STATUS.SELECTED) {
+    throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_SELECTED_STATUS, HTTP_STATUS.BAD_REQUEST);
   }
 
   const updated = await classApplicationRepository.update(applicationId, {
@@ -186,6 +191,9 @@ const approveClassApplication = async (applicationId) => {
   const tutorUserId = tutor.userId?._id ?? tutor.userId;
   const classItem = application.classId;
   const posterUserId = classItem.createdBy?._id ?? classItem.createdBy;
+
+  // Các gia sư ứng tuyển còn lại của lớp → "không được chọn" + báo cho họ
+  const peers = await classApplicationRepository.findPeersToReject(classItem._id, applicationId);
 
   await Promise.all([
     // Lớp chuyển sang "đã ghép" → ẩn khỏi feed/danh sách, vẫn còn trong "bài đăng của tôi"
@@ -205,6 +213,15 @@ const approveClassApplication = async (applicationId) => {
     tutorRepository.update(tutor._id, {
       $inc: { totalClassesAccepted: 1, classesAcceptedThisMonth: 1 },
     }),
+    // Loại các ứng viên còn lại + thông báo
+    classApplicationRepository.markNotSelected(peers.map((p) => p._id)),
+    ...peers.map((p) =>
+      notificationService.createNotification({
+        userId: p.tutorId?.userId?._id ?? p.tutorId?.userId,
+        type: NOTIFICATION_TYPES.CLASS_APPLICATION_NOT_SELECTED,
+        message: `Lớp ${classItem.classCode} - Môn: ${classItem.subject} đã chọn gia sư khác. Cảm ơn bạn đã ứng tuyển.`,
+      }),
+    ),
   ]);
 
   return ClassApplicationMapper.toDTO(updated);
@@ -213,8 +230,9 @@ const approveClassApplication = async (applicationId) => {
 const rejectClassApplication = async (applicationId, rejectionReason) => {
   const application = await classApplicationRepository.findById(applicationId);
   if (!application) throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
-  if (application.status !== CLASS_APPLICATION_STATUS.PENDING) {
-    throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_PENDING, HTTP_STATUS.BAD_REQUEST);
+  // Admin chỉ từ chối gia sư đã được người đăng chọn (selected)
+  if (application.status !== CLASS_APPLICATION_STATUS.SELECTED) {
+    throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_SELECTED_STATUS, HTTP_STATUS.BAD_REQUEST);
   }
 
   const updated = await classApplicationRepository.update(applicationId, {
@@ -225,12 +243,22 @@ const rejectClassApplication = async (applicationId, rejectionReason) => {
   const tutor = application.tutorId;
   const tutorUserId = tutor.userId?._id ?? tutor.userId;
   const classItem = application.classId;
+  const posterUserId = classItem.createdBy?._id ?? classItem.createdBy;
 
-  await notificationService.createNotification({
-    userId: tutorUserId,
-    type: NOTIFICATION_TYPES.CLASS_APPLICATION_REJECTED,
-    message: `Yêu cầu nhận lớp ${classItem.classCode} (Môn: ${classItem.subject}) của bạn đã bị từ chối. Lý do: ${rejectionReason}`,
-  });
+  await Promise.all([
+    notificationService.createNotification({
+      userId: tutorUserId,
+      type: NOTIFICATION_TYPES.CLASS_APPLICATION_REJECTED,
+      message: `Yêu cầu nhận lớp ${classItem.classCode} (Môn: ${classItem.subject}) của bạn đã bị từ chối. Lý do: ${rejectionReason}`,
+    }),
+    // Báo người đăng để chọn lại gia sư khác (các ứng viên còn lại vẫn ở trạng thái chờ)
+    posterUserId &&
+      notificationService.createNotification({
+        userId: posterUserId,
+        type: NOTIFICATION_TYPES.CLASS_APPLICATION_REJECTED,
+        message: `Gia sư bạn chọn cho lớp ${classItem.classCode} (Môn: ${classItem.subject}) đã bị admin từ chối. Vui lòng chọn gia sư khác trong danh sách ứng tuyển.`,
+      }),
+  ]);
 
   return ClassApplicationMapper.toDTO(updated);
 };
@@ -487,6 +515,20 @@ const TRASH_ENTITIES = {
     restore: (id) => promoRepository.restore(id),
     purge: (id) => promoRepository.deleteById(id),
   },
+  reviews: {
+    label: "Đánh giá",
+    list: async ({ page, limit }) => {
+      const { items, totalItems } = await reviewRepository.findDeleted({ page, limit });
+      return { items: ReviewMapper.toTrashDTOs(items), totalItems };
+    },
+    // Khôi phục đánh giá → tính lại điểm trung bình của gia sư
+    restore: async (id) => {
+      const restored = await reviewRepository.restore(id);
+      if (restored) await reviewService.recomputeTutorRating(restored.tutorId);
+      return restored;
+    },
+    purge: (id) => reviewRepository.deleteById(id),
+  },
 };
 
 const getTrashEntity = (type) => {
@@ -522,15 +564,17 @@ const purgeTrashItem = async (type, id) => {
 };
 
 const getTrashCounts = async () => {
-  const [users, classes, promos] = await Promise.all([
+  const [users, classes, promos, reviews] = await Promise.all([
     userRepository.findDeleted({ page: 1, limit: 1 }),
     classRepository.findDeleted({ page: 1, limit: 1 }),
     promoRepository.findDeleted({ page: 1, limit: 1 }),
+    reviewRepository.findDeleted({ page: 1, limit: 1 }),
   ]);
   return {
     users: users.totalItems,
     classes: classes.totalItems,
     promos: promos.totalItems,
+    reviews: reviews.totalItems,
   };
 };
 

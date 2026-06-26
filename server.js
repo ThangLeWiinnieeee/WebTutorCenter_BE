@@ -1,7 +1,7 @@
 require("dotenv").config();
 const app = require("./app");
 const connectDB = require("./src/configs/database");
-const { startClassLifecycleScheduler } = require("./src/helper/classLifecycle.helper");
+const { startClassLifecycleScheduler } = require("./src/utils/classLifecycle");
 
 const PORT = process.env.PORT || 5000;
 

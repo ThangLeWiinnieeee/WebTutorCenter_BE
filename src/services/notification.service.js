@@ -2,7 +2,7 @@ const notificationRepository = require("../repositories/notification.repository"
 const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const { NotificationMapper } = require("../mappers");
-const { buildPagination } = require("../helper/pagination.helper");
+const { buildPagination } = require("../utils/pagination");
 
 const createNotification = async ({ userId, type, message }) => {
   const notification = await notificationRepository.create({ userId, type, message });
