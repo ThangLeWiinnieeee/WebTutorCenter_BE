@@ -107,6 +107,7 @@ const getNewTutors = async (req, res, next) => {
 const searchActiveTutors = async (req, res, next) => {
   try {
     const filters = {
+      name: req.query.name,
       subject: req.query.subject,
       occupationStatus: req.query.occupationStatus,
       gender: req.query.gender,

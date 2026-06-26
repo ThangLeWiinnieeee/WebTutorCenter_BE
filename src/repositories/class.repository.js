@@ -1,5 +1,9 @@
 const ClassModel = require("../models/class.model");
 const { CLASS_STATUS } = require("../models/class.model");
+const { GENDER_OPTIONS } = require("../constants/tutor");
+
+// Các mức trình độ cụ thể mà bài đăng có thể yêu cầu (ngoài "any")
+const SPECIFIC_TUTOR_LEVELS = ["student", "teacher"];
 
 // Mặc định mọi truy vấn đọc đều bỏ qua bài đăng đã xóa mềm (nằm trong thùng rác)
 const NOT_DELETED = { deletedAt: null };
@@ -7,6 +11,28 @@ const NOT_DELETED = { deletedAt: null };
 // Bài đăng "còn hiển thị" ở feed/danh sách công khai: chưa bị ghép hoặc hết hạn.
 // Dùng $nin nên cũng khớp các bài cũ chưa có field `status` (legacy) — coi như đang mở.
 const VISIBLE_STATUS = { status: { $nin: [CLASS_STATUS.MATCHED, CLASS_STATUS.EXPIRED] } };
+
+// Xây bộ lọc feed cá nhân hóa cho gia sư: theo môn + giới tính + trình độ + khu vực.
+// genderPrefs / levelPrefs là danh sách giá trị gia sư CHẤP NHẬN (luôn gồm "any").
+// Dùng $nin loại các giá trị cụ thể không khớp → bài đăng "any" hoặc thiếu field (legacy) vẫn hiện.
+const buildFeedMatchFilter = ({ subjects, genderPrefs, levelPrefs, provinceCode } = {}) => {
+  const filter = { ...NOT_DELETED, ...VISIBLE_STATUS };
+
+  if (subjects?.length) filter.subject = { $in: subjects };
+  if (provinceCode != null) filter.provinceCode = provinceCode;
+
+  if (genderPrefs?.length) {
+    const rejected = GENDER_OPTIONS.filter((g) => !genderPrefs.includes(g));
+    if (rejected.length) filter.tutorGenderPref = { $nin: rejected };
+  }
+
+  if (levelPrefs?.length) {
+    const rejected = SPECIFIC_TUTOR_LEVELS.filter((l) => !levelPrefs.includes(l));
+    if (rejected.length) filter.tutorLevelPref = { $nin: rejected };
+  }
+
+  return filter;
+};
 
 const create = async (payload) => {
   const doc = new ClassModel(payload);
@@ -38,12 +64,13 @@ const findMany = async (filters = {}, options = {}) => {
   return { classes, totalItems };
 };
 
-// Lấy các bài đăng tuyển gia sư thuộc một trong các môn (dành cho feed của gia sư)
-const findBySubjects = async (subjects = [], options = {}) => {
+// Lấy các bài đăng tuyển gia sư khớp tiêu chí cá nhân hóa của gia sư
+// (môn + giới tính + trình độ + khu vực). Xem buildFeedMatchFilter.
+const findByFeedCriteria = async (criteria = {}, options = {}) => {
   const page = options.page || 1;
   const limit = options.limit || 10;
   const skip = (page - 1) * limit;
-  const filters = { ...NOT_DELETED, ...VISIBLE_STATUS, subject: { $in: subjects } };
+  const filters = buildFeedMatchFilter(criteria);
   if (options.excludeIds?.length) filters._id = { $nin: options.excludeIds };
 
   const [classes, totalItems] = await Promise.all([
@@ -54,14 +81,10 @@ const findBySubjects = async (subjects = [], options = {}) => {
   return { classes, totalItems };
 };
 
-// Đếm số bài đăng mới (tạo từ thời điểm `since`) thuộc các môn đã cho
-const countBySubjectsSince = async (subjects = [], since, excludeIds = []) => {
-  const filter = {
-    ...NOT_DELETED,
-    ...VISIBLE_STATUS,
-    subject: { $in: subjects },
-    createdAt: { $gte: since },
-  };
+// Đếm số bài đăng mới (tạo từ thời điểm `since`) khớp tiêu chí cá nhân hóa
+const countByFeedCriteriaSince = async (criteria = {}, since, excludeIds = []) => {
+  const filter = buildFeedMatchFilter(criteria);
+  filter.createdAt = { $gte: since };
   if (excludeIds.length) filter._id = { $nin: excludeIds };
   return await ClassModel.countDocuments(filter);
 };
@@ -182,8 +205,8 @@ module.exports = {
   findById,
   findByClassCode,
   findMany,
-  findBySubjects,
-  countBySubjectsSince,
+  findByFeedCriteria,
+  countByFeedCriteriaSince,
   updateStatus,
   update,
   findExpirableClasses,

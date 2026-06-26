@@ -1,6 +1,7 @@
 const { OAuth2Client } = require("google-auth-library");
 const userRepository = require("../repositories/user.repository");
 const otpRepository = require("../repositories/otp.repository");
+const pendingRegistrationRepository = require("../repositories/pendingRegistration.repository");
 const { hashPassword, comparePassword } = require("../utils/hash");
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken, generateResetToken, verifyResetToken } = require("../utils/token");
 const { generateOtp, getOtpExpiry, isResendTooSoon, getResendWaitSeconds, OTP_EXPIRES_MINUTES } = require("../utils/otp");
@@ -54,39 +55,42 @@ const register = async ({ fullName, email, password, role, phone, dateOfBirth })
     if (existingUser.isVerified) {
       throw new AppError(MESSAGE.EMAIL_ALREADY_EXISTS, HTTP_STATUS.CONFLICT);
     }
-    // Email đã đăng ký nhưng chưa xác thực → gửi lại OTP (cooldown được kiểm tra trong _createAndSendOtp)
-    await _createAndSendOtp({ email, fullName: existingUser.fullName, type: OTP_TYPE.REGISTER });
-    return { email };
+    // Tài khoản local chưa xác thực sót lại từ luồng cũ → xóa để giải phóng email,
+    // dữ liệu đăng ký mới sẽ được lưu tạm và chỉ ghi vào DB sau khi xác thực OTP.
+    await userRepository.hardDeleteUnverifiedLocal(existingUser._id);
   }
 
   const hashedPassword = await hashPassword(password);
-  const user = await userRepository.create({
+
+  // Lưu tạm thông tin tài khoản (chưa ghi vào collection users).
+  // Nếu mất mạng khi nhập OTP, không có gì được lưu vào DB → người dùng đăng ký lại bình thường.
+  await pendingRegistrationRepository.upsert({
     fullName,
     email,
     password: hashedPassword,
     role,
     phone,
     dateOfBirth,
-    type: ACCOUNT_TYPE.LOCAL,
-    isVerified: false,
-    phoneActivated: true,
   });
 
   await _createAndSendOtp({ email, fullName, type: OTP_TYPE.REGISTER });
 
-  return { email: user.email };
+  return { email };
 };
 
 // ─── VERIFY OTP ───
 
 const verifyOtp = async ({ email, otp, type = OTP_TYPE.REGISTER }) => {
-  const user = await userRepository.findByEmail(email);
-  if (!user) {
-    throw new AppError(MESSAGE.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  // Đã có tài khoản đã xác thực với email này → không cho xác thực lại
+  const existingUser = await userRepository.findByEmail(email);
+  if (existingUser && existingUser.isVerified) {
+    throw new AppError(MESSAGE.OTP_ALREADY_VERIFIED, HTTP_STATUS.CONFLICT);
   }
 
-  if (type === OTP_TYPE.REGISTER && user.isVerified) {
-    throw new AppError(MESSAGE.OTP_ALREADY_VERIFIED, HTTP_STATUS.CONFLICT);
+  // Dữ liệu đăng ký được lưu tạm; nếu hết hạn hoặc không tồn tại thì yêu cầu đăng ký lại
+  const pending = await pendingRegistrationRepository.findActiveByEmail(email);
+  if (!pending) {
+    throw new AppError(MESSAGE.REGISTRATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
 
   // findLatestActiveByEmailAndType đã lọc expiresAt > now nên không cần kiểm tra thêm
@@ -99,29 +103,56 @@ const verifyOtp = async ({ email, otp, type = OTP_TYPE.REGISTER }) => {
     throw new AppError(MESSAGE.OTP_INVALID, HTTP_STATUS.BAD_REQUEST);
   }
 
-  // OTP hợp lệ → xóa khỏi collection
-  await otpRepository.deleteByEmailAndType(email, type);
+  // OTP hợp lệ → giờ mới ghi tài khoản vào DB (đã kích hoạt sẵn)
+  const user = await userRepository.create({
+    fullName: pending.fullName,
+    email: pending.email,
+    password: pending.password,
+    role: pending.role,
+    phone: pending.phone,
+    dateOfBirth: pending.dateOfBirth,
+    type: ACCOUNT_TYPE.LOCAL,
+    isVerified: true,
+    phoneActivated: true,
+  });
 
-  if (type === OTP_TYPE.REGISTER) {
-    const verifiedUser = await userRepository.verifyUser(user._id);
-    const { accessToken, refreshToken } = await _issueTokens(verifiedUser);
-    return { accessToken, refreshToken, user: UserMapper.toDTO(verifiedUser) };
-  }
+  // Dọn dữ liệu tạm và OTP đã dùng
+  await Promise.all([
+    pendingRegistrationRepository.deleteByEmail(email),
+    otpRepository.deleteByEmailAndType(email, type),
+  ]);
 
-  // Với forgot_password: chỉ trả về xác nhận, việc đổi mật khẩu xử lý ở bước tiếp theo
-  return { email };
+  const { accessToken, refreshToken } = await _issueTokens(user);
+  return { accessToken, refreshToken, user: UserMapper.toDTO(user) };
 };
 
 // ─── RESEND OTP ───
 
 const resendOtp = async ({ email, type = OTP_TYPE.REGISTER }) => {
+  if (type === OTP_TYPE.REGISTER) {
+    // Dữ liệu đăng ký nằm ở bảng tạm, chưa có trong users
+    const pending = await pendingRegistrationRepository.findActiveByEmail(email);
+    if (!pending) {
+      throw new AppError(MESSAGE.REGISTRATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+    }
+
+    // Gia hạn dữ liệu tạm để không bị TTL dọn trong lúc chờ nhập OTP mới
+    await pendingRegistrationRepository.upsert({
+      fullName: pending.fullName,
+      email: pending.email,
+      password: pending.password,
+      role: pending.role,
+      phone: pending.phone,
+      dateOfBirth: pending.dateOfBirth,
+    });
+
+    await _createAndSendOtp({ email, fullName: pending.fullName, type });
+    return { email };
+  }
+
   const user = await userRepository.findByEmail(email);
   if (!user) {
     throw new AppError(MESSAGE.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
-  }
-
-  if (type === OTP_TYPE.REGISTER && user.isVerified) {
-    throw new AppError(MESSAGE.OTP_ALREADY_VERIFIED, HTTP_STATUS.CONFLICT);
   }
 
   await _createAndSendOtp({ email, fullName: user.fullName, type });

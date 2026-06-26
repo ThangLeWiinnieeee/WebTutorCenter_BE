@@ -125,7 +125,12 @@ const getTutorById = async (tutorId) => {
   if (tutor.status !== TUTOR_STATUS.APPROVED) {
     throw new AppError(MESSAGE.TUTOR_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
-  return await TutorMapper.toDTO(tutor, null);
+  const dto = await TutorMapper.toDTO(tutor, null);
+  // Ẩn thông tin liên hệ ở trang công khai /tutors/:id — SĐT/email chỉ được chia sẻ
+  // giữa người đăng và gia sư sau khi gia sư nhận lớp (tránh bị gọi làm phiền).
+  delete dto.phone;
+  delete dto.email;
+  return dto;
 };
 
 module.exports = {

@@ -3,7 +3,24 @@ const { ClassApplication, CLASS_APPLICATION_STATUS } = require("../models/class.
 // Đầy đủ các field bài đăng mà mapper/khu vực admin cần để hiển thị chi tiết.
 const POPULATE_CLASS =
   "classCode subject summary description locationLabel provinceCode districtCode provinceName districtName contactPhone feePerSession feePerMonth finalFeePerMonth promoCode promoDiscount sessionsPerWeek minutesPerSession studentCount studentGender startDate availabilitySlots tutorGenderPref tutorLevelPref status createdBy createdAt";
-const POPULATE_TUTOR_USER = "fullName email avatar";
+const POPULATE_TUTOR_USER = "fullName email avatar gender";
+
+// Lớp đã "khóa" khỏi feed/danh sách công khai: người đăng đã chọn gia sư (selected),
+// đã ghép (approved) hoặc đang xin hủy (cancel_requested). Lưu ý: PENDING KHÔNG khóa —
+// lớp vẫn nhận thêm gia sư ứng tuyển cho tới khi người đăng chọn.
+const LOCK_STATUSES = [
+  CLASS_APPLICATION_STATUS.SELECTED,
+  CLASS_APPLICATION_STATUS.APPROVED,
+  CLASS_APPLICATION_STATUS.CANCEL_REQUESTED,
+];
+
+// Đơn "đang hoạt động" của một bài đăng (gồm cả pending) — dùng để khóa sửa/xóa bài.
+const ACTIVE_STATUSES = [
+  CLASS_APPLICATION_STATUS.PENDING,
+  CLASS_APPLICATION_STATUS.SELECTED,
+  CLASS_APPLICATION_STATUS.APPROVED,
+  CLASS_APPLICATION_STATUS.CANCEL_REQUESTED,
+];
 
 const create = async (data) => {
   const doc = new ClassApplication(data);
@@ -34,18 +51,99 @@ const findApprovedByClassId = async (classId) => {
   });
 };
 
-// Danh sách classId đã có gia sư nhận (đơn ở trạng thái pending hoặc approved).
-// Dùng để ẩn các bài đăng đã được nhận khỏi feed "Lớp mới theo môn".
+// Đơn đã được duyệt cho NHIỀU bài đăng cùng lúc — để hiển thị gia sư đã ghép trong
+// "Bài đăng của tôi" mà không cần truy vấn lặp từng lớp (tránh N+1).
+const findApprovedByClassIds = async (classIds = []) => {
+  if (!classIds.length) return [];
+  return await ClassApplication.find({
+    classId: { $in: classIds },
+    status: CLASS_APPLICATION_STATUS.APPROVED,
+  }).populate({
+    path: "tutorId",
+    populate: { path: "userId", select: POPULATE_TUTOR_USER },
+  });
+};
+
+// Danh sách classId đã "khóa" (người đăng đã chọn / đã ghép / xin hủy).
+// Dùng để ẩn bài đăng khỏi feed "Lớp mới theo môn" và danh sách công khai.
+// Bài chỉ có ứng viên đang chờ (pending) vẫn hiển thị để nhận thêm gia sư.
 const distinctActiveClassIds = async () => {
+  return await ClassApplication.distinct("classId", { status: { $in: LOCK_STATUSES } });
+};
+
+// Danh sách classId mà MỘT gia sư đã ứng tuyển (còn hiệu lực) — để ẩn khỏi feed của
+// chính gia sư đó (tránh ứng tuyển lại lớp đang chờ/đang xử lý).
+const distinctClassIdsByTutor = async (tutorId) => {
   return await ClassApplication.distinct("classId", {
+    tutorId,
     status: {
       $in: [
         CLASS_APPLICATION_STATUS.PENDING,
+        CLASS_APPLICATION_STATUS.SELECTED,
         CLASS_APPLICATION_STATUS.APPROVED,
-        CLASS_APPLICATION_STATUS.CANCEL_REQUESTED,
       ],
     },
   });
+};
+
+// Danh sách classId có bất kỳ đơn đang hoạt động (gồm pending) — để khóa sửa/xóa bài.
+const distinctClassIdsWithActiveApplications = async () => {
+  return await ClassApplication.distinct("classId", { status: { $in: ACTIVE_STATUSES } });
+};
+
+// Danh sách gia sư ứng tuyển một bài đăng (cho người đăng chọn), sắp xếp theo số lớp
+// đã dạy giảm dần. Bao gồm các đơn đang chờ / đã chọn / đã bị admin từ chối để người
+// đăng nắm toàn cảnh; ẩn các đơn đã bị loại (not_selected) và đã hủy.
+const findApplicantsByClassId = async (classId) => {
+  const docs = await ClassApplication.find({
+    classId,
+    status: {
+      $in: [
+        CLASS_APPLICATION_STATUS.PENDING,
+        CLASS_APPLICATION_STATUS.SELECTED,
+        CLASS_APPLICATION_STATUS.REJECTED,
+        CLASS_APPLICATION_STATUS.APPROVED,
+      ],
+    },
+  }).populate({
+    path: "tutorId",
+    populate: { path: "userId", select: POPULATE_TUTOR_USER },
+  });
+
+  return docs.sort(
+    (a, b) => (b.tutorId?.totalClassesAccepted || 0) - (a.tutorId?.totalClassesAccepted || 0),
+  );
+};
+
+// Các đơn ứng tuyển còn lại của một bài đăng (pending/selected) ngoại trừ đơn được chọn —
+// dùng để đánh dấu "không được chọn" khi admin duyệt, và để báo cho các gia sư đó.
+const findPeersToReject = async (classId, exceptApplicationId) => {
+  return await ClassApplication.find({
+    classId,
+    _id: { $ne: exceptApplicationId },
+    status: { $in: [CLASS_APPLICATION_STATUS.PENDING, CLASS_APPLICATION_STATUS.SELECTED] },
+  }).populate({
+    path: "tutorId",
+    populate: { path: "userId", select: POPULATE_TUTOR_USER },
+  });
+};
+
+// Đưa các đơn đang SELECTED khác (ngoài đơn vừa chọn) của một bài đăng về lại PENDING —
+// dùng khi người đăng đổi lựa chọn sang gia sư khác.
+const resetOtherSelectedToPending = async (classId, exceptApplicationId) => {
+  return await ClassApplication.updateMany(
+    { classId, _id: { $ne: exceptApplicationId }, status: CLASS_APPLICATION_STATUS.SELECTED },
+    { status: CLASS_APPLICATION_STATUS.PENDING },
+  );
+};
+
+// Đánh dấu nhiều đơn → not_selected (các ứng viên không được chọn khi lớp đã ghép)
+const markNotSelected = async (applicationIds = []) => {
+  if (!applicationIds.length) return { modifiedCount: 0 };
+  return await ClassApplication.updateMany(
+    { _id: { $in: applicationIds } },
+    { status: CLASS_APPLICATION_STATUS.NOT_SELECTED },
+  );
 };
 
 // Một trang đơn nhận lớp của gia sư (lọc theo trạng thái nếu có), mới nhất trước.
@@ -62,14 +160,25 @@ const findByTutorIdPage = async (tutorId, { status, page = 1, limit = 10 }) => {
 
 // Đếm số đơn theo trạng thái cho một gia sư (phục vụ badge số lượng các tab).
 const countByTutorIdGrouped = async (tutorId) => {
-  const [pending, approved, rejected, cancelRequested, cancelled] = await Promise.all([
-    ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.PENDING }),
-    ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.APPROVED }),
-    ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.REJECTED }),
-    ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.CANCEL_REQUESTED }),
-    ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.CANCELLED }),
-  ]);
-  return { pending, approved, rejected, cancel_requested: cancelRequested, cancelled };
+  const [pending, selected, approved, rejected, notSelected, cancelRequested, cancelled] =
+    await Promise.all([
+      ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.PENDING }),
+      ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.SELECTED }),
+      ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.APPROVED }),
+      ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.REJECTED }),
+      ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.NOT_SELECTED }),
+      ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.CANCEL_REQUESTED }),
+      ClassApplication.countDocuments({ tutorId, status: CLASS_APPLICATION_STATUS.CANCELLED }),
+    ]);
+  return {
+    pending,
+    selected,
+    approved,
+    rejected,
+    not_selected: notSelected,
+    cancel_requested: cancelRequested,
+    cancelled,
+  };
 };
 
 // ── Admin: quản lý đơn bị hủy / yêu cầu hủy ──
@@ -138,12 +247,13 @@ const findByStatusPage = async ({ status, page = 1, limit = 10 }) => {
 };
 
 const countAll = async () => {
-  const [pending, approved, rejected] = await Promise.all([
+  const [pending, selected, approved, rejected] = await Promise.all([
     ClassApplication.countDocuments({ status: CLASS_APPLICATION_STATUS.PENDING }),
+    ClassApplication.countDocuments({ status: CLASS_APPLICATION_STATUS.SELECTED }),
     ClassApplication.countDocuments({ status: CLASS_APPLICATION_STATUS.APPROVED }),
     ClassApplication.countDocuments({ status: CLASS_APPLICATION_STATUS.REJECTED }),
   ]);
-  return { pending, approved, rejected };
+  return { pending, selected, approved, rejected };
 };
 
 const update = async (id, updateData) => {
@@ -159,19 +269,10 @@ const countPending = async () => {
   return await ClassApplication.countDocuments({ status: CLASS_APPLICATION_STATUS.PENDING });
 };
 
-// Đếm số đơn "đang hoạt động" của một bài đăng (pending/approved/cancel_requested).
+// Đếm số đơn "đang hoạt động" của một bài đăng (pending/selected/approved/cancel_requested).
 // Dùng để chặn chủ bài đăng sửa/xóa khi đã có gia sư ứng tuyển hoặc nhận lớp.
 const countActiveByClassId = async (classId) => {
-  return await ClassApplication.countDocuments({
-    classId,
-    status: {
-      $in: [
-        CLASS_APPLICATION_STATUS.PENDING,
-        CLASS_APPLICATION_STATUS.APPROVED,
-        CLASS_APPLICATION_STATUS.CANCEL_REQUESTED,
-      ],
-    },
-  });
+  return await ClassApplication.countDocuments({ classId, status: { $in: ACTIVE_STATUSES } });
 };
 
 // Đếm số đơn nhận lớp của một bài đăng (theo trạng thái nếu có)
@@ -194,6 +295,25 @@ const countByClassIds = async (classIds = []) => {
   }, {});
 };
 
+// Đếm số gia sư đang ứng tuyển (chờ chọn / đã chọn) cho nhiều bài đăng → map { classId: count }.
+// Dùng cho nút "Gia sư ứng tuyển (N)" của người đăng.
+const countActiveApplicantsByClassIds = async (classIds = []) => {
+  if (!classIds.length) return {};
+  const rows = await ClassApplication.aggregate([
+    {
+      $match: {
+        classId: { $in: classIds },
+        status: { $in: [CLASS_APPLICATION_STATUS.PENDING, CLASS_APPLICATION_STATUS.SELECTED] },
+      },
+    },
+    { $group: { _id: "$classId", count: { $sum: 1 } } },
+  ]);
+  return rows.reduce((acc, row) => {
+    acc[String(row._id)] = row.count;
+    return acc;
+  }, {});
+};
+
 // Xóa toàn bộ đơn nhận lớp thuộc một bài đăng (dùng khi admin xóa bài đăng)
 const deleteByClassId = async (classId) => {
   return await ClassApplication.deleteMany({ classId });
@@ -204,7 +324,14 @@ module.exports = {
   findById,
   findByClassAndTutor,
   findApprovedByClassId,
+  findApprovedByClassIds,
   distinctActiveClassIds,
+  distinctClassIdsByTutor,
+  distinctClassIdsWithActiveApplications,
+  findApplicantsByClassId,
+  findPeersToReject,
+  resetOtherSelectedToPending,
+  markNotSelected,
   findByTutorIdPage,
   countByTutorIdGrouped,
   findCancellationsPage,
@@ -218,5 +345,6 @@ module.exports = {
   countActiveByClassId,
   countByClassId,
   countByClassIds,
+  countActiveApplicantsByClassIds,
   deleteByClassId,
 };

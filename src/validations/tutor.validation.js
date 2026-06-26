@@ -162,6 +162,26 @@ const profileChangeRequestSchema = Joi.object({
   occupationStatus: Joi.string()
     .valid(...Object.values(OCCUPATION_STATUS))
     .messages({ "any.only": "Tình trạng nghề nghiệp không hợp lệ" }),
+  // Danh mục môn do admin quản lý trong DB → membership được kiểm tra ở service.
+  subjects: Joi.array()
+    .items(Joi.string().trim().max(100))
+    .min(1)
+    .messages({
+      "array.min": "Phải chọn ít nhất 1 môn học",
+      "array.base": "Môn học phải là một mảng",
+    }),
+  graduationYear: Joi.number()
+    .integer()
+    .min(1950)
+    .max(new Date().getFullYear())
+    .empty("")
+    .allow(null)
+    .messages({
+      "number.base": "Năm tốt nghiệp phải là số",
+      "number.integer": "Năm tốt nghiệp phải là số nguyên",
+      "number.min": "Năm tốt nghiệp phải từ 1950 trở lên",
+      "number.max": `Năm tốt nghiệp không được lớn hơn ${new Date().getFullYear()}`,
+    }),
   teachingAreas: Joi.object({
     province: Joi.number().integer().required().messages({ "any.required": "Mã tỉnh/thành là bắt buộc" }),
     districts: Joi.array()

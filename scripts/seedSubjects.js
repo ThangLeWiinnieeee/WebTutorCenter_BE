@@ -5,14 +5,14 @@
  * Yêu cầu: file .env có MONGODB_URI
  *
  * Idempotent: upsert theo `name`, không xóa môn đã có (giữ dữ liệu admin thêm tay).
- * Nguồn ban đầu lấy từ constants/subject.js — đúng danh sách mà tutor/class hiện đang dùng,
+ * Nguồn ban đầu lấy từ scripts/subjectsSeedData.js — đúng danh sách mà tutor/class hiện đang dùng,
  * đảm bảo dữ liệu cũ vẫn hợp lệ sau khi chuyển sang validate theo DB.
  */
 
 require("dotenv").config();
 const mongoose = require("mongoose");
 const Subject = require("../src/models/subject.model");
-const SUBJECTS = require("../src/constants/subject");
+const SUBJECTS = require("./subjectsSeedData");
 
 const seedSubjects = async () => {
   try {

@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const Tutor = require("../src/models/tutor.model");
 const User = require("../src/models/user.model");
 const { TUTOR_STATUS, OCCUPATION_STATUS } = require("../src/constants/tutor");
-const SUBJECTS = require("../src/constants/subject");
+const SUBJECTS = require("./subjectsSeedData");
 
 const seedTutorDemoData = async () => {
   try {

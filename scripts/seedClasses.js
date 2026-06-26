@@ -14,7 +14,7 @@ const mongoose = require("mongoose");
 const User = require("../src/models/user.model");
 const locationRepository = require("../src/repositories/location.repository");
 const classService = require("../src/services/class.service");
-const { SUBJECTS } = require("../src/constants/tutor");
+const SUBJECTS = require("./subjectsSeedData");
 
 const SAMPLE_TOPICS = [
   "Củng cố kiến thức nền",

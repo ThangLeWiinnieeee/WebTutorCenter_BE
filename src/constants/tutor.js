@@ -1,4 +1,3 @@
-const SUBJECTS = require("./subject");
 const OCCUPATION_STATUS = require("./occupationStatus");
 
 const TUTOR_STATUS = {
@@ -19,7 +18,6 @@ const CLASS_STATUS = {
 };
 
 module.exports = {
-  SUBJECTS,
   OCCUPATION_STATUS,
   TUTOR_STATUS,
   GENDER_OPTIONS,

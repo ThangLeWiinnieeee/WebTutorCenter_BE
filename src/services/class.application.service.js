@@ -12,7 +12,7 @@ const tutorRepository = require("../repositories/tutor.repository");
 const userRepository = require("../repositories/user.repository");
 const notificationService = require("./notification.service");
 const { ClassApplicationMapper } = require("../mappers");
-const { buildPagination } = require("../helper/pagination.helper");
+const { buildPagination } = require("../utils/pagination");
 
 const applyForClass = async (userId, classId) => {
   const classItem = await classRepository.findById(classId);
@@ -56,22 +56,88 @@ const applyForClass = async (userId, classId) => {
     status: CLASS_APPLICATION_STATUS.PENDING,
   });
 
-  const [tutorUser, admins] = await Promise.all([
-    userRepository.findById(userId),
-    userRepository.findAllByRole(ROLES.ADMIN),
-  ]);
-
+  // Luồng mới: đơn ứng tuyển gửi tới NGƯỜI ĐĂNG (để họ chọn gia sư), không gửi thẳng admin.
+  const tutorUser = await userRepository.findById(userId);
   const tutorName = tutorUser?.fullName || "Gia sư";
-  const notifyAdmins = admins.map((admin) =>
-    notificationService.createNotification({
-      userId: admin._id,
+  const posterUserId = classItem.createdBy;
+  if (posterUserId) {
+    await notificationService.createNotification({
+      userId: posterUserId,
       type: NOTIFICATION_TYPES.CLASS_APPLICATION_PENDING,
-      message: `Gia sư ${tutorName} muốn nhận lớp ${classItem.classCode} - Môn: ${classItem.subject}`,
-    }),
-  );
-  await Promise.all(notifyAdmins);
+      message: `Gia sư ${tutorName} vừa ứng tuyển lớp ${classItem.classCode} - Môn: ${classItem.subject}. Vào "Bài đăng của tôi" để chọn gia sư.`,
+    });
+  }
 
   return ClassApplicationMapper.toDTO(application);
+};
+
+// Người đăng xem danh sách gia sư ứng tuyển bài đăng của mình (sắp theo số lớp đã dạy giảm dần).
+const getApplicantsForPoster = async (userId, classId) => {
+  const classItem = await classRepository.findById(classId);
+  if (!classItem) throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+
+  if (String(classItem.createdBy) !== String(userId)) {
+    throw new AppError(MESSAGE.CLASS_APPLICANT_NOT_OWNER, HTTP_STATUS.FORBIDDEN);
+  }
+
+  const docs = await classApplicationRepository.findApplicantsByClassId(classId);
+  return {
+    classItem: {
+      id: classItem._id,
+      classCode: classItem.classCode,
+      subject: classItem.subject,
+      status: classItem.status || "open",
+    },
+    applicants: ClassApplicationMapper.toApplicantDTOs(docs),
+  };
+};
+
+// Người đăng chọn 1 gia sư từ danh sách ứng tuyển → chuyển sang SELECTED, gửi admin duyệt.
+const selectApplicant = async (userId, classId, applicationId) => {
+  const classItem = await classRepository.findById(classId);
+  if (!classItem) throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+
+  if (String(classItem.createdBy) !== String(userId)) {
+    throw new AppError(MESSAGE.CLASS_APPLICANT_NOT_OWNER, HTTP_STATUS.FORBIDDEN);
+  }
+
+  if (classItem.status && classItem.status !== CLASS_STATUS.OPEN) {
+    throw new AppError(MESSAGE.CLASS_APPLICANT_CLASS_NOT_OPEN, HTTP_STATUS.CONFLICT);
+  }
+
+  const application = await classApplicationRepository.findById(applicationId);
+  const appClassId = application?.classId?._id ?? application?.classId;
+  if (!application || String(appClassId) !== String(classId)) {
+    throw new AppError(MESSAGE.CLASS_APPLICATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  }
+
+  if (application.status !== CLASS_APPLICATION_STATUS.PENDING) {
+    throw new AppError(MESSAGE.CLASS_APPLICANT_NOT_PENDING, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  // Nếu trước đó đã chọn gia sư khác (selected) → đưa họ về lại pending để chọn lại linh hoạt
+  await classApplicationRepository.resetOtherSelectedToPending(classId, applicationId);
+  const updated = await classApplicationRepository.update(applicationId, {
+    status: CLASS_APPLICATION_STATUS.SELECTED,
+  });
+
+  const tutor = application.tutorId;
+  const tutorUserId = tutor.userId?._id ?? tutor.userId;
+  const tutorName = tutor.userId?.fullName || "Gia sư";
+
+  await Promise.all([
+    notificationService.createNotification({
+      userId: tutorUserId,
+      type: NOTIFICATION_TYPES.CLASS_APPLICATION_SELECTED,
+      message: `Bạn đã được người đăng chọn cho lớp ${classItem.classCode} - Môn: ${classItem.subject}. Đang chờ admin duyệt.`,
+    }),
+    notifyAdmins(
+      NOTIFICATION_TYPES.CLASS_APPLICATION_SELECTED,
+      `Người đăng đã chọn gia sư ${tutorName} cho lớp ${classItem.classCode} - Môn: ${classItem.subject}. Vui lòng duyệt lớp.`,
+    ),
+  ]);
+
+  return ClassApplicationMapper.toDTO(updated);
 };
 
 const getMyApplications = async (userId, query = {}) => {
@@ -90,13 +156,17 @@ const getMyApplications = async (userId, query = {}) => {
   const counts = {
     all:
       grouped.pending +
+      grouped.selected +
       grouped.approved +
       grouped.rejected +
+      grouped.not_selected +
       grouped.cancel_requested +
       grouped.cancelled,
     pending: grouped.pending,
+    selected: grouped.selected,
     approved: grouped.approved,
     rejected: grouped.rejected,
+    not_selected: grouped.not_selected,
     cancel_requested: grouped.cancel_requested,
     cancelled: grouped.cancelled,
   };
@@ -160,4 +230,10 @@ const cancelApplication = async (userId, applicationId, reason) => {
   throw new AppError(MESSAGE.CLASS_APPLICATION_CANCEL_INVALID_STATUS, HTTP_STATUS.BAD_REQUEST);
 };
 
-module.exports = { applyForClass, getMyApplications, cancelApplication };
+module.exports = {
+  applyForClass,
+  getApplicantsForPoster,
+  selectApplicant,
+  getMyApplications,
+  cancelApplication,
+};

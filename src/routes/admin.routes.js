@@ -4,6 +4,12 @@ const router = express.Router();
 const authMiddleware = require("../middlewares/auth.middleware");
 const roleMiddleware = require("../middlewares/role.middleware");
 const adminController = require("../controllers/admin.controller");
+const reviewController = require("../controllers/review.controller");
+const {
+  validateQuery: validateReviewQuery,
+  adminListReviewTutorsQuerySchema,
+  adminListTutorReviewsQuerySchema,
+} = require("../validations/review.validation");
 const {
   validate,
   validateQuery,
@@ -58,6 +64,11 @@ router.patch("/class-applications/:id/reject", validate(rejectClassApplicationSc
 router.get("/application-cancellations", validateQuery(adminListCancellationsQuerySchema), adminController.getApplicationCancellations);
 router.patch("/application-cancellations/:id/approve", adminController.approveCancellation);
 router.patch("/application-cancellations/:id/reject", validate(rejectCancellationSchema), adminController.rejectCancellation);
+
+// ──────────────────────────── Review routes (/admin/reviews) — quản lý đánh giá gia sư ────────────────────────────
+router.get("/reviews/tutors", validateReviewQuery(adminListReviewTutorsQuerySchema), reviewController.getAdminReviewTutors);
+router.get("/reviews/tutors/:tutorId", validateReviewQuery(adminListTutorReviewsQuerySchema), reviewController.getAdminTutorReviews);
+router.delete("/reviews/:id", reviewController.softDeleteReview);
 
 // ──────────────────────────── Profile change routes (/admin/profile-changes) — gia sư đổi hồ sơ ────────────────────────────
 router.get("/profile-changes", validateQuery(adminListProfileChangesQuerySchema), adminController.getProfileChanges);

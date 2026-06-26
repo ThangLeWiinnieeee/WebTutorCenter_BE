@@ -135,6 +135,24 @@ const tutorSchema = new mongoose.Schema(
       default: 0,
       min: [0, "Số lớp không thể âm"],
     },
+    // Thống kê đánh giá (cập nhật lại mỗi khi có đánh giá mới / bị xóa mềm / khôi phục).
+    // averageRating = ratingSum / reviewCount (0 nếu chưa có đánh giá nào).
+    ratingSum: {
+      type: Number,
+      default: 0,
+      min: [0, "Tổng số sao không thể âm"],
+    },
+    reviewCount: {
+      type: Number,
+      default: 0,
+      min: [0, "Số lượt đánh giá không thể âm"],
+    },
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: [0, "Điểm đánh giá không thể âm"],
+      max: [5, "Điểm đánh giá tối đa là 5"],
+    },
   },
   {
     timestamps: true,

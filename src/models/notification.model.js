@@ -7,6 +7,10 @@ const NOTIFICATION_TYPES = {
   CLASS_APPLICATION_PENDING: "CLASS_APPLICATION_PENDING",
   CLASS_APPLICATION_APPROVED: "CLASS_APPLICATION_APPROVED",
   CLASS_APPLICATION_REJECTED: "CLASS_APPLICATION_REJECTED",
+  // Người đăng chọn gia sư (gửi cho gia sư được chọn + admin để duyệt)
+  CLASS_APPLICATION_SELECTED: "CLASS_APPLICATION_SELECTED",
+  // Gia sư không được người đăng chọn (gửi cho các gia sư còn lại khi lớp đã ghép)
+  CLASS_APPLICATION_NOT_SELECTED: "CLASS_APPLICATION_NOT_SELECTED",
   PROFILE_CHANGE_PENDING: "PROFILE_CHANGE_PENDING",
   PROFILE_CHANGE_APPROVED: "PROFILE_CHANGE_APPROVED",
   PROFILE_CHANGE_REJECTED: "PROFILE_CHANGE_REJECTED",
@@ -19,6 +23,8 @@ const NOTIFICATION_TYPES = {
   CLASS_EXPIRED: "CLASS_EXPIRED",
   // Hoàn thành lớp → tặng mã giảm giá (gửi cho cả người đăng và gia sư)
   CLASS_COMPLETED_REWARD: "CLASS_COMPLETED_REWARD",
+  // Gia sư nhận được đánh giá mới từ người đăng (sau khi lớp hoàn thành)
+  REVIEW_RECEIVED: "REVIEW_RECEIVED",
 };
 
 const notificationSchema = new mongoose.Schema(

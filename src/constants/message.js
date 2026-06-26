@@ -28,6 +28,7 @@ const MESSAGE = {
   OTP_EXPIRED: "Mã OTP đã hết hạn, vui lòng yêu cầu mã mới",
   OTP_ALREADY_VERIFIED: "Email này đã được xác thực",
   OTP_RESEND_TOO_SOON: "Vui lòng chờ trước khi yêu cầu gửi lại mã OTP",
+  REGISTRATION_NOT_FOUND: "Phiên đăng ký không tồn tại hoặc đã hết hạn, vui lòng đăng ký lại",
 
   // Forgot password
   FORGOT_PASSWORD_OTP_SENT: "Mã OTP khôi phục mật khẩu đã được gửi đến email của bạn",
@@ -67,15 +68,23 @@ const MESSAGE = {
   FORBIDDEN: "Bạn không có quyền thực hiện hành động này",
 
   // Class Application
-  CLASS_APPLICATION_APPLY_SUCCESS: "Yêu cầu nhận lớp đã được gửi, vui lòng chờ admin xét duyệt",
-  CLASS_APPLICATION_ALREADY_EXISTS: "Bạn đã gửi yêu cầu nhận lớp này trước đó",
+  CLASS_APPLICATION_APPLY_SUCCESS: "Đã ứng tuyển lớp, vui lòng chờ người đăng chọn gia sư",
+  CLASS_APPLICATION_ALREADY_EXISTS: "Bạn đã ứng tuyển lớp này trước đó",
   CLASS_APPLICATION_OWN_CLASS: "Bạn không thể nhận lớp do chính mình đăng",
   CLASS_APPLICATION_NOT_FOUND: "Không tìm thấy đơn đăng ký nhận lớp",
   CLASS_APPLICATION_NOT_PENDING: "Đơn đăng ký này không ở trạng thái chờ duyệt",
+  CLASS_APPLICATION_NOT_SELECTED_STATUS: "Đơn này chưa được người đăng chọn nên không thể duyệt",
   CLASS_APPLICATION_LIST_SUCCESS: "Lấy danh sách đơn đăng ký nhận lớp thành công",
   CLASS_APPLICATION_STATS_SUCCESS: "Lấy thống kê đơn đăng ký nhận lớp thành công",
   CLASS_APPLICATION_APPROVE_SUCCESS: "Đã duyệt gia sư cho lớp thành công",
   CLASS_APPLICATION_REJECT_SUCCESS: "Đã từ chối đơn đăng ký nhận lớp",
+
+  // Người đăng chọn gia sư từ danh sách ứng tuyển
+  CLASS_APPLICANTS_LIST_SUCCESS: "Lấy danh sách gia sư ứng tuyển thành công",
+  CLASS_APPLICANT_SELECT_SUCCESS: "Đã chọn gia sư, vui lòng chờ admin duyệt lớp",
+  CLASS_APPLICANT_NOT_OWNER: "Bạn không có quyền quản lý ứng tuyển của bài đăng này",
+  CLASS_APPLICANT_NOT_PENDING: "Chỉ có thể chọn gia sư đang ở trạng thái chờ",
+  CLASS_APPLICANT_CLASS_NOT_OPEN: "Lớp này không còn ở trạng thái mở để chọn gia sư",
 
   // Hủy đơn nhận lớp (gia sư rút đơn)
   CLASS_APPLICATION_CANCEL_SUCCESS: "Đã hủy đơn nhận lớp",
@@ -100,6 +109,17 @@ const MESSAGE = {
   PROFILE_CHANGE_INVALID_SUBJECTS: "Danh sách môn học không hợp lệ (phải chọn ít nhất 1 môn trong danh mục)",
   PROFILE_CHANGE_SUBJECTS_REMOVE_FORBIDDEN: "Chỉ được bổ sung thêm môn học, không được bỏ môn đã đăng ký",
   PROFILE_CHANGE_INVALID_GRAD_YEAR: "Năm tốt nghiệp là bắt buộc và phải hợp lệ (từ 1950 đến năm hiện tại)",
+
+  // Review (đánh giá gia sư)
+  REVIEW_CREATE_SUCCESS: "Đánh giá gia sư thành công, cảm ơn bạn đã nhận xét",
+  REVIEW_LIST_SUCCESS: "Lấy danh sách đánh giá thành công",
+  REVIEW_ADMIN_TUTORS_SUCCESS: "Lấy danh sách gia sư để quản lý đánh giá thành công",
+  REVIEW_DELETE_SUCCESS: "Đã chuyển đánh giá vào thùng rác",
+  REVIEW_NOT_FOUND: "Không tìm thấy đánh giá",
+  REVIEW_ALREADY_EXISTS: "Bạn đã đánh giá gia sư cho lớp này rồi",
+  REVIEW_CLASS_NOT_COMPLETED: "Chỉ có thể đánh giá khi lớp đã hoàn thành",
+  REVIEW_NOT_POSTER: "Chỉ người đăng bài mới được đánh giá gia sư của lớp này",
+  REVIEW_TUTOR_NOT_FOUND: "Lớp này chưa có gia sư nhận nên không thể đánh giá",
 
   // Class
   QUOTE_SUCCESS: "Tính học phí lớp mới thành công",
