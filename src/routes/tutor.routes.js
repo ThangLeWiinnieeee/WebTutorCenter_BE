@@ -5,8 +5,10 @@ const tutorController = require("../controllers/tutor.controller");
 const { tutorValidation } = require("../validations");
 const { registerTutorSchema, profileChangeRequestSchema, validate } = tutorValidation;
 const authMiddleware = require("../middlewares/auth.middleware");
+const { uploadDocumentMiddleware } = require("../utils/upload");
 
 router.post("/register", authMiddleware, validate(registerTutorSchema), tutorController.registerTutor);
+router.post("/upload-document", authMiddleware, uploadDocumentMiddleware, tutorController.uploadDocument);
 router.get("/profile", authMiddleware, tutorController.getTutorProfile);
 
 // Gia sư đổi hồ sơ — chờ admin duyệt

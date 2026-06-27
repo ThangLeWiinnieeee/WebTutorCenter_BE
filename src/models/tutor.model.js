@@ -107,6 +107,38 @@ const tutorSchema = new mongoose.Schema(
       minlength: [10, "Phần giới thiệu phải có ít nhất 10 ký tự"],
       maxlength: [2000, "Phần giới thiệu không được vượt quá 2000 ký tự"],
     },
+    // Ảnh CCCD/CMND để xác thực danh tính gia sư (bắt buộc khi đăng ký).
+    // Chỉ admin (duyệt hồ sơ) và chính gia sư được xem — không lộ ở endpoint công khai.
+    cccdFrontImage: {
+      type: String,
+      required: [true, "Ảnh CCCD mặt trước là bắt buộc"],
+      trim: true,
+    },
+    cccdBackImage: {
+      type: String,
+      required: [true, "Ảnh CCCD mặt sau là bắt buộc"],
+      trim: true,
+    },
+    // Ảnh thẻ sinh viên mặt trước / mặt sau — mặt trước bắt buộc khi tình trạng là "sinh viên".
+    studentCardFrontImage: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    studentCardBackImage: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    // Ảnh bằng cấp (tối đa 5 ảnh) — bắt buộc khi đã tốt nghiệp / giáo viên.
+    certificateImages: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (arr) => !Array.isArray(arr) || arr.length <= 5,
+        message: "Tối đa 5 ảnh bằng cấp",
+      },
+    },
     status: {
       type: String,
       enum: Object.values(TUTOR_STATUS),

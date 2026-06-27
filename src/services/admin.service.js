@@ -95,7 +95,8 @@ const getPendingTutors = async (query = {}) => {
     tutorRepository.countByStatus(TUTOR_STATUS.PENDING),
   ]);
   return {
-    tutors: await TutorMapper.toDTOList(tutors),
+    // Admin cần xem ảnh CCCD/bằng cấp để đối chiếu khi duyệt hồ sơ
+    tutors: await TutorMapper.toDTOList(tutors, { includeDocuments: true }),
     pagination: buildPagination({ page, limit, totalItems }),
   };
 };
@@ -134,13 +135,29 @@ const rejectTutor = async (tutorId, rejectionReason) => {
 };
 
 const getDashboardStats = async () => {
-  const [pendingCount, approvedCount, rejectedCount, pendingClassApplicationsCount] = await Promise.all([
+  const [
+    pendingCount,
+    approvedCount,
+    rejectedCount,
+    pendingClassApplicationsCount,
+    profileChangeCounts,
+    cancellationCounts,
+  ] = await Promise.all([
     tutorRepository.countByStatus(TUTOR_STATUS.PENDING),
     tutorRepository.countByStatus(TUTOR_STATUS.APPROVED),
     tutorRepository.countByStatus(TUTOR_STATUS.REJECTED),
-    classApplicationRepository.countPending(),
+    classApplicationRepository.countSelected(),
+    profileChangeRequestRepository.countGrouped(),
+    classApplicationRepository.countCancellationsGrouped(),
   ]);
-  return { pendingCount, approvedCount, rejectedCount, pendingClassApplicationsCount };
+  return {
+    pendingCount,
+    approvedCount,
+    rejectedCount,
+    pendingClassApplicationsCount,
+    pendingProfileChangesCount: profileChangeCounts.pending,
+    pendingCancellationsCount: cancellationCounts.cancel_requested,
+  };
 };
 
 // ──────────────────────────── Class application admin ────────────────────────────

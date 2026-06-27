@@ -1,7 +1,9 @@
 const locationRepository = require("../repositories/location.repository");
 
 class TutorMapper {
-  static async toDTO(tutor, user, cache = null) {
+  // options.includeDocuments: chỉ thêm ảnh giấy tờ (CCCD/bằng cấp) cho người được phép xem
+  // (chủ hồ sơ + admin). Mặc định KHÔNG trả để không lộ ở endpoint công khai.
+  static async toDTO(tutor, user, cache = null, options = {}) {
     if (!tutor) {
       throw new Error("TutorMapper.toDTO: tutor is required");
     }
@@ -10,6 +12,16 @@ class TutorMapper {
       TutorMapper._resolveTeachingAreas(tutor.teachingAreas, cache),
       TutorMapper._resolveCurrentArea(tutor.currentArea, cache),
     ]);
+
+    const documents = options.includeDocuments
+      ? {
+          cccdFrontImage: tutor.cccdFrontImage || null,
+          cccdBackImage: tutor.cccdBackImage || null,
+          studentCardFrontImage: tutor.studentCardFrontImage || null,
+          studentCardBackImage: tutor.studentCardBackImage || null,
+          certificateImages: tutor.certificateImages || [],
+        }
+      : {};
 
     // userId có thể là ObjectId (chưa populate) hoặc populated document.
     // Khi populated, tutor.userId._id trả ObjectId; khi chưa, fallback về tutor.userId.
@@ -37,15 +49,16 @@ class TutorMapper {
       reviewCount: tutor.reviewCount ?? 0,
       status: tutor.status,
       rejectionReason: tutor.rejectionReason,
+      ...documents,
       createdAt: tutor.createdAt,
       updatedAt: tutor.updatedAt,
     };
   }
 
-  static async toDTOList(tutors) {
+  static async toDTOList(tutors, options = {}) {
     if (!Array.isArray(tutors)) return [];
     const cache = { provinces: new Map(), districts: new Map() };
-    return Promise.all(tutors.map((tutor) => TutorMapper.toDTO(tutor, null, cache)));
+    return Promise.all(tutors.map((tutor) => TutorMapper.toDTO(tutor, null, cache, options)));
   }
 
   static async _getProvince(code, cache) {

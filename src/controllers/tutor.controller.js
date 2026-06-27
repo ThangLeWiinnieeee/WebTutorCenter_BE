@@ -149,6 +149,22 @@ const getTutorById = async (req, res, next) => {
   }
 };
 
+// Upload một ảnh giấy tờ xác thực (CCCD/bằng cấp) → trả về URL Cloudinary để gắn vào form đăng ký
+const uploadDocument = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new AppError("Tải ảnh lên thất bại, vui lòng thử lại", HTTP_STATUS.BAD_REQUEST);
+    }
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Tải ảnh lên thành công",
+      data: { url: req.file.path },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
 // Gia sư gửi yêu cầu đổi thông tin hồ sơ (chờ admin duyệt)
 const requestProfileChange = async (req, res, next) => {
   try {
@@ -179,6 +195,7 @@ const getMyProfileChangeRequest = async (req, res, next) => {
 
 module.exports = {
   registerTutor,
+  uploadDocument,
   getTutorProfile,
   getActiveTutors,
   getTopTutors,
