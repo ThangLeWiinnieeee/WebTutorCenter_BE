@@ -23,7 +23,54 @@ const EDITABLE_FIELDS = [
   "bio",
   "subjects",
   "graduationYear",
+  // Hồ sơ chứng thực (bổ sung/cập nhật) — duyệt cùng luồng đổi hồ sơ
+  "cccdFrontImage",
+  "cccdBackImage",
+  "studentCardFrontImage",
+  "studentCardBackImage",
+  "certificateImages",
 ];
+
+const DOCUMENT_FIELDS = [
+  "cccdFrontImage",
+  "cccdBackImage",
+  "studentCardFrontImage",
+  "studentCardBackImage",
+  "certificateImages",
+];
+
+// Khi yêu cầu có động tới hồ sơ chứng thực: bắt buộc đủ bộ (CCCD 2 mặt + thẻ SV 2 mặt / ≥1 bằng cấp)
+// và loại bỏ phần không phù hợp với tình trạng nghề nghiệp.
+const validateAndNormalizeDocuments = (changes, nextOccupation) => {
+  const touchesDocs = DOCUMENT_FIELDS.some((f) => changes[f] !== undefined);
+  if (!touchesDocs) return;
+
+  if (!changes.cccdFrontImage || !changes.cccdBackImage) {
+    throw new AppError(
+      "Vui lòng tải đủ ảnh CCCD mặt trước và mặt sau.",
+      HTTP_STATUS.UNPROCESSABLE_ENTITY
+    );
+  }
+
+  if (nextOccupation === OCCUPATION_STATUS.STUDENT) {
+    if (!changes.studentCardFrontImage || !changes.studentCardBackImage) {
+      throw new AppError(
+        "Vui lòng tải đủ ảnh thẻ sinh viên mặt trước và mặt sau.",
+        HTTP_STATUS.UNPROCESSABLE_ENTITY
+      );
+    }
+    changes.certificateImages = [];
+  } else {
+    if (!Array.isArray(changes.certificateImages) || changes.certificateImages.length < 1) {
+      throw new AppError(
+        "Vui lòng tải lên ít nhất 1 ảnh bằng cấp.",
+        HTTP_STATUS.UNPROCESSABLE_ENTITY
+      );
+    }
+    changes.studentCardFrontImage = null;
+    changes.studentCardBackImage = null;
+  }
+};
 
 const pickEditableChanges = (body = {}) => {
   const changes = {};
@@ -94,6 +141,9 @@ const requestChange = async (userId, body = {}) => {
       changes.graduationYear = year;
     }
   }
+
+  // Hồ sơ chứng thực: validate đủ bộ theo tình trạng nghề nghiệp (nếu yêu cầu có động tới)
+  validateAndNormalizeDocuments(changes, changes.occupationStatus ?? tutor.occupationStatus);
 
   const existingPending = await profileChangeRequestRepository.findPendingByTutorId(tutor._id);
   if (existingPending) {

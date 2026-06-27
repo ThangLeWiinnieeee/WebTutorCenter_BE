@@ -8,7 +8,9 @@ class ProfileChangeRequestMapper {
     const user = doc.userId; // { fullName, email, avatar } đã populate
 
     const [current, changes] = await Promise.all([
-      tutor && tutor._id ? TutorMapper.toDTO(tutor, null) : Promise.resolve(null),
+      tutor && tutor._id
+        ? TutorMapper.toDTO(tutor, null, null, { includeDocuments: true })
+        : Promise.resolve(null),
       ProfileChangeRequestMapper._resolveChanges(doc.changes || {}),
     ]);
 

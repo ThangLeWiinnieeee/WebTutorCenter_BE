@@ -269,6 +269,12 @@ const countPending = async () => {
   return await ClassApplication.countDocuments({ status: CLASS_APPLICATION_STATUS.PENDING });
 };
 
+// Đơn đang chờ ADMIN duyệt nhận lớp = đã được người đăng chọn (SELECTED).
+// Khác countPending (gia sư mới ứng tuyển, chưa được chọn) — đó chưa phải việc của admin.
+const countSelected = async () => {
+  return await ClassApplication.countDocuments({ status: CLASS_APPLICATION_STATUS.SELECTED });
+};
+
 // Đếm số đơn "đang hoạt động" của một bài đăng (pending/selected/approved/cancel_requested).
 // Dùng để chặn chủ bài đăng sửa/xóa khi đã có gia sư ứng tuyển hoặc nhận lớp.
 const countActiveByClassId = async (classId) => {
@@ -341,6 +347,7 @@ module.exports = {
   findByStatusPage,
   update,
   countPending,
+  countSelected,
   countAll,
   countActiveByClassId,
   countByClassId,

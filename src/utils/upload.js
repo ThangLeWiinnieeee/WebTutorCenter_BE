@@ -32,6 +32,28 @@ const uploadAvatarMiddleware = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
 }).single("avatar");
 
+// Ảnh giấy tờ xác thực gia sư (CCCD/bằng cấp). Giữ độ phân giải cao hơn avatar để admin
+// đọc rõ thông tin; không crop vuông.
+const documentStorage = new CloudinaryStorage({
+  cloudinary,
+  params: (req, file) => ({
+    folder: "webtutorcenter/documents",
+    public_id: `doc_${req.user.id}_${Date.now()}`,
+    resource_type: "image",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    transformation: [
+      { width: 1600, height: 1600, crop: "limit" },
+      { quality: "auto", fetch_format: "auto" },
+    ],
+  }),
+});
+
+const uploadDocumentMiddleware = multer({
+  storage: documentStorage,
+  fileFilter,
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB
+}).single("document");
+
 const deleteAvatarFromCloudinary = async (avatarUrl) => {
   if (!avatarUrl || !avatarUrl.includes("cloudinary.com")) return;
 
@@ -46,4 +68,4 @@ const deleteAvatarFromCloudinary = async (avatarUrl) => {
   }
 };
 
-module.exports = { uploadAvatarMiddleware, deleteAvatarFromCloudinary };
+module.exports = { uploadAvatarMiddleware, uploadDocumentMiddleware, deleteAvatarFromCloudinary };

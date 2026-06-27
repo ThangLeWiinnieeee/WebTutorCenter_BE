@@ -143,6 +143,63 @@ const registerTutorSchema = Joi.object({
       "array.min": "Phải có ít nhất 1 khung giờ giảng dạy",
       "any.required": "Lịch giảng dạy là bắt buộc",
     }),
+
+  // Ảnh giấy tờ xác thực (URL Cloudinary đã upload trước qua /tutors/upload-document)
+  cccdFrontImage: Joi.string().uri().required().messages({
+    "string.empty": "Vui lòng tải ảnh CCCD mặt trước",
+    "string.uri": "Ảnh CCCD mặt trước không hợp lệ",
+    "any.required": "Ảnh CCCD mặt trước là bắt buộc",
+  }),
+
+  cccdBackImage: Joi.string().uri().required().messages({
+    "string.empty": "Vui lòng tải ảnh CCCD mặt sau",
+    "string.uri": "Ảnh CCCD mặt sau không hợp lệ",
+    "any.required": "Ảnh CCCD mặt sau là bắt buộc",
+  }),
+
+  // Thẻ sinh viên mặt trước: bắt buộc khi là sinh viên. Mặt sau: tùy chọn.
+  studentCardFrontImage: Joi.string()
+    .uri()
+    .when("occupationStatus", {
+      is: "student",
+      then: Joi.required(),
+      otherwise: Joi.optional().allow(null, ""),
+    })
+    .messages({
+      "string.empty": "Vui lòng tải ảnh thẻ sinh viên mặt trước",
+      "string.uri": "Ảnh thẻ sinh viên mặt trước không hợp lệ",
+      "any.required": "Ảnh thẻ sinh viên mặt trước là bắt buộc",
+    }),
+
+  // Thẻ sinh viên mặt sau: cũng bắt buộc khi là sinh viên.
+  studentCardBackImage: Joi.string()
+    .uri()
+    .when("occupationStatus", {
+      is: "student",
+      then: Joi.required(),
+      otherwise: Joi.optional().allow(null, ""),
+    })
+    .messages({
+      "string.empty": "Vui lòng tải ảnh thẻ sinh viên mặt sau",
+      "string.uri": "Ảnh thẻ sinh viên mặt sau không hợp lệ",
+      "any.required": "Ảnh thẻ sinh viên mặt sau là bắt buộc",
+    }),
+
+  // Bằng cấp: bắt buộc tối thiểu 1 (tối đa 5) khi đã tốt nghiệp / giáo viên, ngược lại bỏ qua.
+  certificateImages: Joi.array()
+    .items(Joi.string().uri().messages({ "string.uri": "Ảnh bằng cấp không hợp lệ" }))
+    .max(5)
+    .when("occupationStatus", {
+      is: Joi.valid("graduated", "teacher"),
+      then: Joi.array().min(1).required(),
+      otherwise: Joi.array().default([]),
+    })
+    .messages({
+      "array.base": "Danh sách bằng cấp phải là một mảng",
+      "array.max": "Tối đa 5 ảnh bằng cấp",
+      "array.min": "Vui lòng tải lên ít nhất 1 ảnh bằng cấp",
+      "any.required": "Ảnh bằng cấp là bắt buộc",
+    }),
 });
 
 const rejectTutorSchema = Joi.object({
@@ -202,6 +259,22 @@ const profileChangeRequestSchema = Joi.object({
     .items(availabilitySlotSchema)
     .min(1)
     .messages({ "array.min": "Phải có ít nhất 1 khung giờ giảng dạy" }),
+
+  // Bổ sung / cập nhật hồ sơ chứng thực (qua duyệt). Tính đầy đủ kiểm tra ở service.
+  cccdFrontImage: Joi.string().uri().messages({ "string.uri": "Ảnh CCCD mặt trước không hợp lệ" }),
+  cccdBackImage: Joi.string().uri().messages({ "string.uri": "Ảnh CCCD mặt sau không hợp lệ" }),
+  studentCardFrontImage: Joi.string()
+    .uri()
+    .allow(null, "")
+    .messages({ "string.uri": "Ảnh thẻ sinh viên mặt trước không hợp lệ" }),
+  studentCardBackImage: Joi.string()
+    .uri()
+    .allow(null, "")
+    .messages({ "string.uri": "Ảnh thẻ sinh viên mặt sau không hợp lệ" }),
+  certificateImages: Joi.array()
+    .items(Joi.string().uri().messages({ "string.uri": "Ảnh bằng cấp không hợp lệ" }))
+    .max(5)
+    .messages({ "array.max": "Tối đa 5 ảnh bằng cấp" }),
 })
   .min(1)
   .messages({ "object.min": "Vui lòng cung cấp ít nhất một thông tin để cập nhật" });

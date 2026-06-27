@@ -10,6 +10,7 @@ const classRepository = require("../repositories/class.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
 const tutorRepository = require("../repositories/tutor.repository");
 const userRepository = require("../repositories/user.repository");
+const tutorService = require("./tutor.service");
 const notificationService = require("./notification.service");
 const { ClassApplicationMapper } = require("../mappers");
 const { buildPagination } = require("../utils/pagination");
@@ -36,6 +37,14 @@ const applyForClass = async (userId, classId) => {
 
   if (tutor.status !== TUTOR_STATUS.APPROVED) {
     throw new AppError("Hồ sơ gia sư của bạn chưa được phê duyệt", HTTP_STATUS.FORBIDDEN);
+  }
+
+  // Bắt buộc có hồ sơ chứng thực đầy đủ (CCCD + thẻ sinh viên/bằng cấp) trước khi nhận lớp
+  if (!tutorService.hasCompleteDocuments(tutor)) {
+    throw new AppError(
+      "Bạn cần bổ sung ảnh CCCD và thẻ sinh viên/bằng cấp trong hồ sơ trước khi nhận lớp.",
+      HTTP_STATUS.UNPROCESSABLE_ENTITY,
+    );
   }
 
   if (!tutor.subjects.includes(classItem.subject)) {

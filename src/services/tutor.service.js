@@ -10,6 +10,17 @@ const { TUTOR_STATUS } = require("../constants/tutor");
 const OCCUPATION_STATUS = require("../constants/occupationStatus");
 const { TutorMapper } = require("../mappers");
 
+// Hồ sơ chứng thực đầy đủ khi: có CCCD 2 mặt + (sinh viên: thẻ SV 2 mặt | còn lại: ≥1 bằng cấp).
+// Dùng để chặn nhận lớp và kiểm tra khi gia sư bổ sung hồ sơ.
+const hasCompleteDocuments = (tutor) => {
+  if (!tutor) return false;
+  if (!tutor.cccdFrontImage || !tutor.cccdBackImage) return false;
+  if (tutor.occupationStatus === OCCUPATION_STATUS.STUDENT) {
+    return Boolean(tutor.studentCardFrontImage && tutor.studentCardBackImage);
+  }
+  return Array.isArray(tutor.certificateImages) && tutor.certificateImages.length >= 1;
+};
+
 const registerTutor = async (userId, tutorData) => {
   const user = await userRepository.findById(userId);
   if (!user) {
@@ -38,6 +49,8 @@ const registerTutor = async (userId, tutorData) => {
   // - Đã tốt nghiệp / giáo viên: BẮT BUỘC có năm hợp lệ (1950..nay)
   if (tutorData.occupationStatus === OCCUPATION_STATUS.STUDENT) {
     tutorData.graduationYear = null;
+    // Sinh viên: chỉ giữ thẻ sinh viên, bỏ bằng cấp
+    tutorData.certificateImages = [];
   } else {
     const year = Number(tutorData.graduationYear);
     const currentYear = new Date().getFullYear();
@@ -50,6 +63,9 @@ const registerTutor = async (userId, tutorData) => {
       throw new AppError(MESSAGE.PROFILE_CHANGE_INVALID_GRAD_YEAR, HTTP_STATUS.UNPROCESSABLE_ENTITY);
     }
     tutorData.graduationYear = year;
+    // Đã tốt nghiệp / giáo viên: chỉ giữ bằng cấp, bỏ thẻ sinh viên
+    tutorData.studentCardFrontImage = null;
+    tutorData.studentCardBackImage = null;
   }
 
   const tutor = await tutorRepository.create({ userId, ...tutorData });
@@ -60,7 +76,8 @@ const registerTutor = async (userId, tutorData) => {
     message: "Hồ sơ gia sư của bạn đang chờ xét duyệt. Chúng tôi sẽ thông báo khi có kết quả.",
   });
 
-  return await TutorMapper.toDTO(tutor, user);
+  // Chủ hồ sơ được xem lại ảnh giấy tờ của chính mình
+  return await TutorMapper.toDTO(tutor, user, null, { includeDocuments: true });
 };
 
 const getTutorProfile = async (userId) => {
@@ -71,7 +88,8 @@ const getTutorProfile = async (userId) => {
 
   const user = await userRepository.findById(userId);
 
-  return await TutorMapper.toDTO(tutor, user);
+  // Chủ hồ sơ được xem lại ảnh giấy tờ của chính mình
+  return await TutorMapper.toDTO(tutor, user, null, { includeDocuments: true });
 };
 
 // Lấy danh sách tất cả gia sư đã approved (có phân trang, sắp xếp theo totalClassesAccepted)
@@ -134,6 +152,7 @@ const getTutorById = async (tutorId) => {
 };
 
 module.exports = {
+  hasCompleteDocuments,
   registerTutor,
   getTutorProfile,
   getActiveTutors,
