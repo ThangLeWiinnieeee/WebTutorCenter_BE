@@ -1,4 +1,4 @@
-const { CLASS_APPLICATION_STATUS } = require("../models/class.application.model");
+const { CLASS_APPLICATION_STATUS } = require("../constants/classApplication");
 
 class ClassApplicationMapper {
   static toDTO(application) {

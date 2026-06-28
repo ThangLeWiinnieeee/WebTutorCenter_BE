@@ -1,5 +1,5 @@
 const ProfileChangeRequest = require("../models/profileChangeRequest.model");
-const { PROFILE_CHANGE_STATUS } = require("../models/profileChangeRequest.model");
+const { PROFILE_CHANGE_STATUS } = require("../constants/profileChangeRequest");
 
 const POPULATE_USER = "fullName email avatar";
 

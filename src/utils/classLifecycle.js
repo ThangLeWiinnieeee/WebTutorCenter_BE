@@ -1,8 +1,8 @@
 const classRepository = require("../repositories/class.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
 const notificationService = require("../services/notification.service");
-const { NOTIFICATION_TYPES } = require("../models/notification.model");
-const { CLASS_STATUS } = require("../models/class.model");
+const { NOTIFICATION_TYPES } = require("../constants/notification");
+const { CLASS_STATUS } = require("../constants/class");
 
 const EXPIRY_INTERVAL_MS = 15 * 60 * 1000; // quét mỗi 15 phút
 const FIRST_RUN_DELAY_MS = 15 * 1000; // chạy lần đầu sau 15s để DB ổn định
