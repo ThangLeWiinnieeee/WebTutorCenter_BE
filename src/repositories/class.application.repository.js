@@ -365,6 +365,16 @@ const deleteByClassId = async (classId) => {
   return await ClassApplication.deleteMany({ classId });
 };
 
+// Xóa đơn nhận lớp thuộc nhiều bài đăng (xóa vĩnh viễn tài khoản người đăng)
+const deleteByClassIds = async (classIds) => {
+  return await ClassApplication.deleteMany({ classId: { $in: classIds } });
+};
+
+// Xóa toàn bộ đơn nhận lớp của một gia sư (xóa vĩnh viễn tài khoản gia sư)
+const deleteByTutorId = async (tutorId) => {
+  return await ClassApplication.deleteMany({ tutorId });
+};
+
 module.exports = {
   create,
   findById,
@@ -396,4 +406,6 @@ module.exports = {
   countByClassIds,
   countActiveApplicantsByClassIds,
   deleteByClassId,
+  deleteByClassIds,
+  deleteByTutorId,
 };

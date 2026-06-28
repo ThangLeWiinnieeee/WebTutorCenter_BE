@@ -49,6 +49,11 @@ const sumAdminUnread = async () => {
   return row?.total || 0;
 };
 
+// Xóa hội thoại của một người dùng (xóa vĩnh viễn tài khoản)
+const deleteByTutorUserId = async (tutorUserId) => {
+  return Conversation.deleteMany({ tutorUserId });
+};
+
 module.exports = {
   findByTutorUserId,
   findById,
@@ -56,4 +61,5 @@ module.exports = {
   findPageForAdmin,
   updateById,
   sumAdminUnread,
+  deleteByTutorUserId,
 };

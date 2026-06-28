@@ -105,6 +105,12 @@ const findDeleted = async ({ page = 1, limit = 10 } = {}) => {
 const deleteById = async (id) =>
   Review.findOneAndDelete({ _id: id, deletedAt: { $ne: null } });
 
+// Xóa toàn bộ đánh giá VỀ một gia sư (xóa vĩnh viễn tài khoản gia sư)
+const deleteByTutorId = async (tutorId) => Review.deleteMany({ tutorId });
+
+// Xóa toàn bộ đánh giá DO một người dùng viết (xóa vĩnh viễn tài khoản người đăng)
+const deleteByReviewerId = async (reviewerId) => Review.deleteMany({ reviewerId });
+
 module.exports = {
   create,
   findById,
@@ -117,4 +123,6 @@ module.exports = {
   restore,
   findDeleted,
   deleteById,
+  deleteByTutorId,
+  deleteByReviewerId,
 };

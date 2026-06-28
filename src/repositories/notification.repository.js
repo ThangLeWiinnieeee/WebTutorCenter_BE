@@ -42,6 +42,11 @@ const markAllAsRead = async (userId) => {
   );
 };
 
+// Xóa toàn bộ thông báo của một người dùng (xóa vĩnh viễn tài khoản)
+const deleteByUserId = async (userId) => {
+  return Notification.deleteMany({ userId });
+};
+
 module.exports = {
   create,
   findByUserId,
@@ -50,4 +55,5 @@ module.exports = {
   countUnread,
   markAsRead,
   markAllAsRead,
+  deleteByUserId,
 };

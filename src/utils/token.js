@@ -37,10 +37,14 @@ const verifyResetToken = (token) => {
   return decoded;
 };
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const REFRESH_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
+  // Khi FE (Vercel) và BE (Render) khác domain, cookie phải có SameSite=None + Secure
+  // thì trình duyệt mới gửi kèm trong request cross-site. Dev (localhost) giữ "strict".
+  secure: isProduction,
+  sameSite: isProduction ? "none" : "strict",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
