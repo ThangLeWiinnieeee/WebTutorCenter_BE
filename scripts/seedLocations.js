@@ -8,7 +8,7 @@
 
 require("dotenv").config();
 const mongoose = require("mongoose");
-const locationRepository = require("../src/modules/locations/location.repository");
+const locationRepository = require("../src/repositories/location.repository");
 
 const API_URL = "https://provinces.open-api.vn/api/v1/?depth=2";
 

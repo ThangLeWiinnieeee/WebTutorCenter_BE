@@ -4,8 +4,8 @@ const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
 
 const routes = require("./src/routes/index");
-const errorMiddleware = require("./src/core/middlewares/error.middleware");
-const corsOptions = require("./src/core/configs/cors");
+const errorMiddleware = require("./src/middlewares/error.middleware");
+const corsOptions = require("./src/configs/cors");
 
 const app = express();
 
