@@ -15,5 +15,7 @@ defineLazyExport(mappers, "TutorMapper", "./tutor.mapper");
 defineLazyExport(mappers, "UserMapper", "./user.mapper");
 defineLazyExport(mappers, "ReviewMapper", "./review.mapper");
 defineLazyExport(mappers, "ProfileChangeRequestMapper", "./profileChangeRequest.mapper");
+defineLazyExport(mappers, "ConversationMapper", "./conversation.mapper");
+defineLazyExport(mappers, "MessageMapper", "./message.mapper");
 
 module.exports = mappers;

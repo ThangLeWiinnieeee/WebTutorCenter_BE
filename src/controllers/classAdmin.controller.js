@@ -1,0 +1,57 @@
+const classAdminService = require("../services/classAdmin.service");
+const { successResponse } = require("../utils/response");
+const AppError = require("../utils/AppError");
+const HTTP_STATUS = require("../constants/status");
+const MESSAGE = require("../constants/message");
+
+const handleError = (error, res, next) => {
+  if (error instanceof AppError) {
+    return res.status(error.statusCode).json({ success: false, message: error.message });
+  }
+  next(error);
+};
+
+const getAdminClasses = async (req, res, next) => {
+  try {
+    const data = await classAdminService.getAdminClasses(req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.LIST_SUCCESS,
+      data,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const getAdminClassDetail = async (req, res, next) => {
+  try {
+    const classItem = await classAdminService.getAdminClassDetail(req.params.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.DETAIL_SUCCESS,
+      data: { classItem },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const deleteAdminClass = async (req, res, next) => {
+  try {
+    const result = await classAdminService.deleteAdminClass(req.params.id, req.user.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Đã chuyển bài đăng vào thùng rác",
+      data: result,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+module.exports = {
+  getAdminClasses,
+  getAdminClassDetail,
+  deleteAdminClass,
+};

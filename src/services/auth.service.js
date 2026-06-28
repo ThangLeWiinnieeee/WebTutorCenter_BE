@@ -1,4 +1,3 @@
-const { OAuth2Client } = require("google-auth-library");
 const userRepository = require("../repositories/user.repository");
 const otpRepository = require("../repositories/otp.repository");
 const pendingRegistrationRepository = require("../repositories/pendingRegistration.repository");
@@ -12,7 +11,9 @@ const ACCOUNT_TYPE = require("../constants/accountType");
 const OTP_TYPE = require("../constants/otpType");
 const AppError = require("../utils/AppError");
 const { UserMapper } = require("../mappers");
+const { OAuth2Client } = require("google-auth-library");
 
+// Xác thực ID token (credential) từ nút <GoogleLogin> mặc định của Google Identity Services.
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const _issueTokens = async (user) => {
@@ -302,7 +303,10 @@ const googleLogin = async ({ credential }) => {
     throw new AppError(MESSAGE.GOOGLE_TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
   }
 
-  const { email, name, picture } = payload;
+  const { email, name, picture } = payload || {};
+  if (!email) {
+    throw new AppError(MESSAGE.GOOGLE_TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
+  }
 
   const existingUser = await userRepository.findByEmail(email);
 

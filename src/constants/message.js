@@ -62,6 +62,7 @@ const MESSAGE = {
   ADMIN_DELETE_USER_SUCCESS: "Xóa người dùng thành công",
   ADMIN_SELF_DEACTIVATE: "Không thể vô hiệu hóa chính tài khoản đang đăng nhập",
   ADMIN_SELF_DELETE: "Không thể xóa chính tài khoản đang đăng nhập",
+  ADMIN_SELF_ROLE_CHANGE: "Không thể thay đổi vai trò của chính tài khoản đang đăng nhập",
 
   // Server
   INTERNAL_SERVER_ERROR: "Lỗi máy chủ nội bộ",
@@ -95,6 +96,22 @@ const MESSAGE = {
   CLASS_APPLICATION_CANCEL_APPROVE_SUCCESS: "Đã duyệt hủy đơn nhận lớp",
   CLASS_APPLICATION_CANCEL_REJECT_SUCCESS: "Đã từ chối yêu cầu hủy đơn",
 
+  // Mời gia sư trực tiếp (người đăng chọn gia sư cụ thể cho lớp)
+  CLASS_INVITE_SUCCESS: "Đã gửi lời mời tới gia sư, vui lòng chờ gia sư phản hồi",
+  CLASS_INVITE_TUTOR_NOT_FOUND: "Không tìm thấy gia sư được mời",
+  CLASS_INVITE_TUTOR_NOT_APPROVED: "Gia sư này chưa được duyệt nên không thể mời",
+  CLASS_INVITE_OWN: "Bạn không thể tự mời chính mình",
+  CLASS_INVITE_SUBJECT_MISMATCH: "Gia sư này không dạy môn bạn chọn",
+  CLASS_INVITE_AREA_MISMATCH: "Khu vực bạn chọn không nằm trong khu vực gia sư có thể dạy",
+  CLASS_INVITE_SLOT_MISMATCH: "Khung giờ bạn chọn không nằm trong lịch dạy của gia sư",
+  CLASS_INVITE_PREF_MISMATCH: "Yêu cầu giới tính/trình độ không khớp với hồ sơ gia sư",
+  CLASS_INVITE_ALREADY_EXISTS: "Bạn đã mời gia sư này cho một lớp khác đang chờ phản hồi",
+  CLASS_INVITATIONS_LIST_SUCCESS: "Lấy danh sách lời mời thành công",
+  CLASS_INVITE_NOT_FOUND: "Không tìm thấy lời mời",
+  CLASS_INVITE_NOT_PENDING: "Lời mời này không còn ở trạng thái chờ phản hồi",
+  CLASS_INVITE_ACCEPT_SUCCESS: "Đã đồng ý nhận lớp, vui lòng chờ admin duyệt",
+  CLASS_INVITE_DECLINE_SUCCESS: "Đã từ chối lời mời",
+
   // Profile change request (gia sư đổi hồ sơ — chờ admin duyệt)
   PROFILE_CHANGE_REQUEST_SUCCESS: "Đã gửi yêu cầu đổi thông tin, vui lòng chờ admin duyệt",
   PROFILE_CHANGE_GET_SUCCESS: "Lấy yêu cầu đổi thông tin thành công",
@@ -109,6 +126,8 @@ const MESSAGE = {
   PROFILE_CHANGE_INVALID_SUBJECTS: "Danh sách môn học không hợp lệ (phải chọn ít nhất 1 môn trong danh mục)",
   PROFILE_CHANGE_SUBJECTS_REMOVE_FORBIDDEN: "Chỉ được bổ sung thêm môn học, không được bỏ môn đã đăng ký",
   PROFILE_CHANGE_INVALID_GRAD_YEAR: "Năm tốt nghiệp là bắt buộc và phải hợp lệ (từ 1950 đến năm hiện tại)",
+  PROFILE_CHANGE_DOCUMENT_LOCKED:
+    "Giấy tờ đã chứng thực không thể sửa lại. Bạn chỉ có thể bổ sung phần còn thiếu.",
 
   // Review (đánh giá gia sư)
   REVIEW_CREATE_SUCCESS: "Đánh giá gia sư thành công, cảm ơn bạn đã nhận xét",

@@ -39,13 +39,43 @@ const DOCUMENT_FIELDS = [
   "certificateImages",
 ];
 
-// Khi yêu cầu có động tới hồ sơ chứng thực: bắt buộc đủ bộ (CCCD 2 mặt + thẻ SV 2 mặt / ≥1 bằng cấp)
-// và loại bỏ phần không phù hợp với tình trạng nghề nghiệp.
-const validateAndNormalizeDocuments = (changes, nextOccupation) => {
+// Giấy tờ đơn (mỗi field 1 ảnh) — đã chứng thực rồi thì không cho sửa lại.
+const SINGLE_DOCUMENT_FIELDS = [
+  "cccdFrontImage",
+  "cccdBackImage",
+  "studentCardFrontImage",
+  "studentCardBackImage",
+];
+
+// Đã có giấy tờ chứng thực thì KHÔNG được sửa lại — chỉ được BỔ SUNG phần còn thiếu.
+// (Ngoại lệ duy nhất: bổ sung ảnh bằng cấp khi vừa chuyển sang "đã tốt nghiệp".)
+const assertDocumentsNotLocked = (changes, tutor) => {
+  for (const field of SINGLE_DOCUMENT_FIELDS) {
+    const incoming = changes[field];
+    if (incoming === undefined) continue;
+    if (tutor[field] && incoming !== tutor[field]) {
+      throw new AppError(MESSAGE.PROFILE_CHANGE_DOCUMENT_LOCKED, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    }
+  }
+  // Bằng cấp: đã có ≥1 ảnh thì không cho chỉnh lại.
+  if (
+    changes.certificateImages !== undefined &&
+    Array.isArray(tutor.certificateImages) &&
+    tutor.certificateImages.length >= 1
+  ) {
+    throw new AppError(MESSAGE.PROFILE_CHANGE_DOCUMENT_LOCKED, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+};
+
+// Khi yêu cầu có động tới hồ sơ chứng thực: kiểm tra ĐỦ bộ dựa trên kết quả sau khi áp
+// thay đổi (gộp hồ sơ hiện tại + thay đổi). Không tự xóa thẻ sinh viên khi tốt nghiệp.
+const validateDocuments = (changes, tutor, nextOccupation) => {
   const touchesDocs = DOCUMENT_FIELDS.some((f) => changes[f] !== undefined);
   if (!touchesDocs) return;
 
-  if (!changes.cccdFrontImage || !changes.cccdBackImage) {
+  const merged = (field) => (changes[field] !== undefined ? changes[field] : tutor[field]);
+
+  if (!merged("cccdFrontImage") || !merged("cccdBackImage")) {
     throw new AppError(
       "Vui lòng tải đủ ảnh CCCD mặt trước và mặt sau.",
       HTTP_STATUS.UNPROCESSABLE_ENTITY
@@ -53,22 +83,20 @@ const validateAndNormalizeDocuments = (changes, nextOccupation) => {
   }
 
   if (nextOccupation === OCCUPATION_STATUS.STUDENT) {
-    if (!changes.studentCardFrontImage || !changes.studentCardBackImage) {
+    if (!merged("studentCardFrontImage") || !merged("studentCardBackImage")) {
       throw new AppError(
         "Vui lòng tải đủ ảnh thẻ sinh viên mặt trước và mặt sau.",
         HTTP_STATUS.UNPROCESSABLE_ENTITY
       );
     }
-    changes.certificateImages = [];
   } else {
-    if (!Array.isArray(changes.certificateImages) || changes.certificateImages.length < 1) {
+    const certs = merged("certificateImages");
+    if (!Array.isArray(certs) || certs.length < 1) {
       throw new AppError(
         "Vui lòng tải lên ít nhất 1 ảnh bằng cấp.",
         HTTP_STATUS.UNPROCESSABLE_ENTITY
       );
     }
-    changes.studentCardFrontImage = null;
-    changes.studentCardBackImage = null;
   }
 };
 
@@ -142,8 +170,10 @@ const requestChange = async (userId, body = {}) => {
     }
   }
 
-  // Hồ sơ chứng thực: validate đủ bộ theo tình trạng nghề nghiệp (nếu yêu cầu có động tới)
-  validateAndNormalizeDocuments(changes, changes.occupationStatus ?? tutor.occupationStatus);
+  // Hồ sơ chứng thực: không cho sửa lại giấy tờ đã có, chỉ bổ sung phần thiếu; rồi
+  // validate đủ bộ theo tình trạng nghề nghiệp (dựa trên kết quả sau khi áp thay đổi).
+  assertDocumentsNotLocked(changes, tutor);
+  validateDocuments(changes, tutor, changes.occupationStatus ?? tutor.occupationStatus);
 
   const existingPending = await profileChangeRequestRepository.findPendingByTutorId(tutor._id);
   if (existingPending) {

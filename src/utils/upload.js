@@ -54,6 +54,27 @@ const uploadDocumentMiddleware = multer({
   limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB
 }).single("document");
 
+// Ảnh đính kèm trong tin nhắn chat (gia sư ↔ admin).
+const chatImageStorage = new CloudinaryStorage({
+  cloudinary,
+  params: (req, file) => ({
+    folder: "webtutorcenter/chat",
+    public_id: `chat_${req.user.id}_${Date.now()}`,
+    resource_type: "image",
+    allowed_formats: ["jpg", "jpeg", "png", "gif", "webp"],
+    transformation: [
+      { width: 1600, height: 1600, crop: "limit" },
+      { quality: "auto", fetch_format: "auto" },
+    ],
+  }),
+});
+
+const uploadChatImageMiddleware = multer({
+  storage: chatImageStorage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+}).single("image");
+
 const deleteAvatarFromCloudinary = async (avatarUrl) => {
   if (!avatarUrl || !avatarUrl.includes("cloudinary.com")) return;
 
@@ -68,4 +89,9 @@ const deleteAvatarFromCloudinary = async (avatarUrl) => {
   }
 };
 
-module.exports = { uploadAvatarMiddleware, uploadDocumentMiddleware, deleteAvatarFromCloudinary };
+module.exports = {
+  uploadAvatarMiddleware,
+  uploadDocumentMiddleware,
+  uploadChatImageMiddleware,
+  deleteAvatarFromCloudinary,
+};

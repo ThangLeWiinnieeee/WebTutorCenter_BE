@@ -1,0 +1,71 @@
+const classApplicationAdminService = require("../services/classApplicationAdmin.service");
+const { successResponse } = require("../utils/response");
+const AppError = require("../utils/AppError");
+const HTTP_STATUS = require("../constants/status");
+const MESSAGE = require("../constants/message");
+
+const handleError = (error, res, next) => {
+  if (error instanceof AppError) {
+    return res.status(error.statusCode).json({ success: false, message: error.message });
+  }
+  next(error);
+};
+
+const getClassApplications = async (req, res, next) => {
+  try {
+    const result = await classApplicationAdminService.getClassApplications(req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICATION_LIST_SUCCESS,
+      data: result,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const getClassApplicationStats = async (req, res, next) => {
+  try {
+    const stats = await classApplicationAdminService.getClassApplicationStats(req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: "Lấy thống kê đơn đăng ký thành công",
+      data: { stats },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const approveClassApplication = async (req, res, next) => {
+  try {
+    const application = await classApplicationAdminService.approveClassApplication(req.params.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICATION_APPROVE_SUCCESS,
+      data: { application },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const rejectClassApplication = async (req, res, next) => {
+  try {
+    const application = await classApplicationAdminService.rejectClassApplication(req.params.id, req.body.rejectionReason);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_APPLICATION_REJECT_SUCCESS,
+      data: { application },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+module.exports = {
+  getClassApplications,
+  getClassApplicationStats,
+  approveClassApplication,
+  rejectClassApplication,
+};

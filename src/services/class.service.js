@@ -16,6 +16,11 @@ const promoRepository = require("../repositories/promo.repository");
 const notificationService = require("./notification.service");
 const { CLASS_STATUS } = require("../models/class.model");
 const { NOTIFICATION_TYPES } = require("../models/notification.model");
+const {
+  CLASS_APPLICATION_STATUS,
+  CLASS_APPLICATION_ORIGIN,
+} = require("../models/class.application.model");
+const { TUTOR_STATUS } = require("../constants/tutor");
 const { buildPagination } = require("../utils/pagination");
 const { generateUniqueCode } = require("../utils/code");
 
@@ -231,6 +236,82 @@ const createClass = async (payload, userId) => {
   return await maskClassItem(created, { id: userId });
 };
 
+// Người đăng mời một gia sư cụ thể dạy lớp của mình (luồng "mời gia sư trực tiếp").
+// Lớp được tạo với requestedTutorId (ẩn khỏi feed/danh sách công khai) + tạo sẵn 1 đơn
+// nhận lớp origin="invite" status="invited" và thông báo cho gia sư được mời.
+const createInvitedClass = async (payload, userId) => {
+  const { requestedTutorId, ...classPayload } = payload;
+
+  if (!(await subjectService.isValidSubjectName(classPayload.subject))) {
+    throw new AppError(MESSAGE.SUBJECT_NOT_FOUND, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+
+  const tutor = await tutorRepository.findById(requestedTutorId);
+  if (!tutor) throw new AppError(MESSAGE.CLASS_INVITE_TUTOR_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  if (tutor.status !== TUTOR_STATUS.APPROVED) {
+    throw new AppError(MESSAGE.CLASS_INVITE_TUTOR_NOT_APPROVED, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+
+  const tutorUser = tutor.userId || {};
+  const tutorUserId = tutorUser._id ?? tutor.userId;
+  if (String(tutorUserId) === String(userId)) {
+    throw new AppError(MESSAGE.CLASS_INVITE_OWN, HTTP_STATUS.FORBIDDEN);
+  }
+
+  // Re-validate (không tin client): mọi ràng buộc phải khớp hồ sơ gia sư
+  if (!Array.isArray(tutor.subjects) || !tutor.subjects.includes(classPayload.subject)) {
+    throw new AppError(MESSAGE.CLASS_INVITE_SUBJECT_MISMATCH, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+
+  const teachingProvince = tutor.teachingAreas?.province;
+  const teachingDistricts = tutor.teachingAreas?.districts || [];
+  if (
+    Number(classPayload.provinceCode) !== Number(teachingProvince) ||
+    !teachingDistricts.map(Number).includes(Number(classPayload.districtCode))
+  ) {
+    throw new AppError(MESSAGE.CLASS_INVITE_AREA_MISMATCH, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+
+  const tutorSlotKeys = new Set((tutor.availability || []).map((s) => `${s.day}-${s.hour}`));
+  const allSlotsAllowed = (classPayload.availabilitySlots || []).every((s) =>
+    tutorSlotKeys.has(`${s.day}-${s.hour}`),
+  );
+  if (!allSlotsAllowed) {
+    throw new AppError(MESSAGE.CLASS_INVITE_SLOT_MISMATCH, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+
+  const expectedGenderPref = tutorUser.gender || "any";
+  const expectedLevelPref = OCCUPATION_TO_LEVEL[tutor.occupationStatus] || "any";
+  if (
+    classPayload.tutorGenderPref !== expectedGenderPref ||
+    classPayload.tutorLevelPref !== expectedLevelPref
+  ) {
+    throw new AppError(MESSAGE.CLASS_INVITE_PREF_MISMATCH, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+
+  const { data, promoDoc } = await buildClassData(classPayload, userId);
+  data.requestedTutorId = tutor._id;
+  const created = await classRepository.create(data);
+  if (promoDoc?._id) {
+    await promoRepository.incrementUsed(promoDoc._id);
+  }
+
+  await classApplicationRepository.create({
+    classId: created._id,
+    tutorId: tutor._id,
+    origin: CLASS_APPLICATION_ORIGIN.INVITE,
+    status: CLASS_APPLICATION_STATUS.INVITED,
+  });
+
+  await notificationService.createNotification({
+    userId: tutorUserId,
+    type: NOTIFICATION_TYPES.CLASS_INVITE_RECEIVED,
+    message: `Có người yêu cầu bạn dạy lớp ${created.classCode} - Môn: ${created.subject}. Vào "Lời mời dạy lớp" để xem và phản hồi.`,
+  });
+
+  return await maskClassItem(created, { id: userId });
+};
+
 const normalizeSubjectFilter = (subject, names = []) => {
   if (!subject) return "";
   const normalized = subject.trim().toLowerCase();
@@ -356,7 +437,7 @@ const getMyPostedClasses = async (userId, query = {}) => {
   // Đánh dấu bài đăng đã có đơn đang hoạt động (gồm cả ứng viên đang chờ) → FE ẩn nút sửa/xóa
   // cho khớp với ràng buộc backend (countActiveByClassId).
   const classIds = classes.map((c) => c._id);
-  const [activeIds, applicantCounts, approvedApps, reviewedIds] = await Promise.all([
+  const [activeIds, applicantCounts, approvedApps, reviewedIds, inviteApps] = await Promise.all([
     classApplicationRepository
       .distinctClassIdsWithActiveApplications()
       .then((ids) => new Set(ids.map(String))),
@@ -365,11 +446,19 @@ const getMyPostedClasses = async (userId, query = {}) => {
     classApplicationRepository.findApprovedByClassIds(classIds),
     // Các lớp người đăng đã đánh giá gia sư → ẩn nút "Đánh giá gia sư"
     reviewRepository.findReviewedClassIds(userId, classIds).then((ids) => new Set(ids.map(String))),
+    // Đơn mời gia sư trực tiếp (origin=invite) → hiển thị kết quả mời (đồng ý/từ chối + lý do)
+    classApplicationRepository.findInviteByClassIds(classIds),
   ]);
   // Map { classId: thông tin gia sư đã ghép (kèm SĐT) } để gắn vào từng bài đăng
   const matchedTutorByClassId = approvedApps.reduce((acc, app) => {
     const tutor = ClassApplicationMapper.toMatchedTutorDTO(app);
     if (tutor) acc[String(app.classId)] = tutor;
+    return acc;
+  }, {});
+  // Map { classId: thông tin gia sư được mời + trạng thái lời mời }
+  const invitedTutorByClassId = inviteApps.reduce((acc, app) => {
+    const dto = ClassApplicationMapper.toInvitedTutorDTO(app);
+    if (dto) acc[String(app.classId)] = dto;
     return acc;
   }, {});
   const maskedClasses = await maskClassItem(classes, { id: userId });
@@ -382,6 +471,8 @@ const getMyPostedClasses = async (userId, query = {}) => {
       item.matchedTutor = matchedTutorByClassId[String(item.id)] || null;
       // Người đăng đã đánh giá gia sư của lớp này chưa (chỉ ý nghĩa khi lớp đã hoàn thành)
       item.reviewed = reviewedIds.has(String(item.id));
+      // Lớp mời gia sư trực tiếp: gia sư được mời + trạng thái lời mời (đồng ý/từ chối + lý do)
+      item.invitedTutor = invitedTutorByClassId[String(item.id)] || null;
     }
   });
   return {
@@ -559,6 +650,7 @@ const getPricingConfig = async () => {
 module.exports = {
   quoteClass,
   createClass,
+  createInvitedClass,
   getClasses,
   getClassFeedForTutor,
   getMyPostedClasses,

@@ -90,10 +90,61 @@ const cancelApplication = async (req, res, next) => {
   }
 };
 
+// ── Luồng mời gia sư trực tiếp (gia sư phản hồi lời mời) ──
+
+const getMyInvitations = async (req, res, next) => {
+  try {
+    const result = await classApplicationService.getMyInvitations(req.user.id, req.query);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_INVITATIONS_LIST_SUCCESS,
+      data: result,
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const acceptInvitation = async (req, res, next) => {
+  try {
+    const application = await classApplicationService.acceptInvitation(
+      req.user.id,
+      req.params.applicationId,
+    );
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_INVITE_ACCEPT_SUCCESS,
+      data: { application },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+const declineInvitation = async (req, res, next) => {
+  try {
+    const application = await classApplicationService.declineInvitation(
+      req.user.id,
+      req.params.applicationId,
+      req.body.reason,
+    );
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.CLASS_INVITE_DECLINE_SUCCESS,
+      data: { application },
+    });
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
 module.exports = {
   applyForClass,
   getApplicants,
   selectApplicant,
   getMyApplications,
   cancelApplication,
+  getMyInvitations,
+  acceptInvitation,
+  declineInvitation,
 };

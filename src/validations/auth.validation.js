@@ -91,6 +91,7 @@ const forgotPasswordSchema = Joi.object({
 });
 
 const googleLoginSchema = Joi.object({
+  // credential = ID token (JWT) từ nút <GoogleLogin> mặc định của @react-oauth/google
   credential: Joi.string().required().messages({
     "string.empty": "Không nhận được mã xác thực Google",
     "any.required": "Không nhận được mã xác thực Google",

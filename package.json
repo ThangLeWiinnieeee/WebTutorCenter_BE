@@ -5,19 +5,19 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "seed:users": "node scripts/seedDemoData.js users",
-    "seed:tutors": "node scripts/seedDemoData.js tutors",
-    "seed:schools": "node scripts/seedSchools.js",
-    "seed:demo": "node scripts/seedDemoData.js all",
+    "seed:users": "node -r ./scripts/_atlasDns.js scripts/seedDemoData.js users",
+    "seed:tutors": "node -r ./scripts/_atlasDns.js scripts/seedDemoData.js tutors",
+    "seed:schools": "node -r ./scripts/_atlasDns.js scripts/seedSchools.js",
+    "seed:demo": "node -r ./scripts/_atlasDns.js scripts/seedDemoData.js all",
     "dev": "nodemon server.js",
-    "seed:locations": "node scripts/seedLocations.js",
-    "seed:classes": "node scripts/seedClasses.js",
-    "seed:update-tutor-fields": "node scripts/seedUpdateTutorFields.js",
-    "seed:lookups": "node scripts/seedLookups.js",
-    "seed:tutor-demo": "node scripts/seedTutorDemoData.js",
-    "seed:pricing": "node scripts/seedClassPricing.js",
-    "seed:full": "node scripts/seedFullDemo.js"
-
+    "seed:locations": "node -r ./scripts/_atlasDns.js scripts/seedLocations.js",
+    "seed:subjects": "node -r ./scripts/_atlasDns.js scripts/seedSubjects.js",
+    "seed:classes": "node -r ./scripts/_atlasDns.js scripts/seedClasses.js",
+    "seed:update-tutor-fields": "node -r ./scripts/_atlasDns.js scripts/seedUpdateTutorFields.js",
+    "seed:lookups": "node -r ./scripts/_atlasDns.js scripts/seedLookups.js",
+    "seed:tutor-demo": "node -r ./scripts/_atlasDns.js scripts/seedTutorDemoData.js",
+    "seed:pricing": "node -r ./scripts/_atlasDns.js scripts/seedClassPricing.js",
+    "seed:full": "node -r ./scripts/_atlasDns.js scripts/seedFullDemo.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -33,7 +33,8 @@
     "morgan": "^1.10.0",
     "multer": "^2.1.1",
     "multer-storage-cloudinary": "^4.0.0",
-    "nodemailer": "^8.0.4"
+    "nodemailer": "^8.0.4",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

@@ -1,3 +1,4 @@
+require("./dns"); // Ưu tiên DNS công cộng cho SRV/TXT của MongoDB Atlas (xem src/configs/dns.js)
 const mongoose = require("mongoose");
 
 const connectDB = async () => {

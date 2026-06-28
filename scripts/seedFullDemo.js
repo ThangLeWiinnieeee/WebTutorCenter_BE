@@ -38,6 +38,9 @@ const Promo = require("../src/models/promo.model");
 const { Notification, NOTIFICATION_TYPES } = require("../src/models/notification.model");
 const ProfileChangeRequest = require("../src/models/profileChangeRequest.model");
 const { PROFILE_CHANGE_STATUS } = require("../src/models/profileChangeRequest.model");
+const Review = require("../src/models/review.model");
+const { Conversation, CHAT_ROLES } = require("../src/models/conversation.model");
+const { Message } = require("../src/models/message.model");
 
 const locationRepository = require("../src/repositories/location.repository");
 const classPricingRepository = require("../src/repositories/class.pricing.repository");
@@ -103,6 +106,11 @@ const removeTones = (str) =>
 
 // SĐT hợp lệ theo PHONE_REGEX /^(84|0)(3|5|7|8|9)[0-9]{8}$/
 const makePhone = (seq) => `09${String(seq % 100000000).padStart(8, "0")}`;
+
+// Ảnh giấy tờ minh chứng (CCCD / thẻ SV / bằng cấp) — placeholder hiển thị được để
+// admin đối chiếu khi duyệt hồ sơ. Các field này nay BẮT BUỘC trong tutor.model.
+const docImage = (label) =>
+  `https://placehold.co/800x500/e2e8f0/1e3a5f?text=${encodeURIComponent(label)}`;
 
 const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
 const daysFromNow = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
@@ -338,6 +346,7 @@ const seedTutors = async (usersByIdx, areas) => {
     const districts = pickSome(area.districts, Math.min(3, area.districts.length)).map((d) => d.code);
     const occ = pick(Object.values(OCCUPATION_STATUS));
     const subjects = pickSome(SUBJECTS, randInt(1, 2));
+    const isStudent = occ === OCCUPATION_STATUS.STUDENT;
 
     const base = {
       userId: user._id,
@@ -347,8 +356,15 @@ const seedTutors = async (usersByIdx, areas) => {
       teachingAreas: { province: area.province.code, districts },
       currentArea: { province: area.province.code, district: districts[0] },
       schoolName: pick(SCHOOLS),
-      graduationYear: occ === OCCUPATION_STATUS.STUDENT ? null : randInt(2010, 2024),
+      graduationYear: isStudent ? null : randInt(2010, 2024),
       bio: pick(BIOS),
+      // Giấy tờ minh chứng: CCCD luôn bắt buộc; thẻ SV (sinh viên) / bằng cấp (đã tốt
+      // nghiệp - giáo viên) theo đúng quy tắc đăng ký hồ sơ.
+      cccdFrontImage: docImage("CCCD mặt trước"),
+      cccdBackImage: docImage("CCCD mặt sau"),
+      studentCardFrontImage: isStudent ? docImage("Thẻ SV mặt trước") : null,
+      studentCardBackImage: isStudent ? docImage("Thẻ SV mặt sau") : null,
+      certificateImages: isStudent ? [] : [docImage("Bằng cấp")],
       status,
       rejectionReason: status === TUTOR_STATUS.REJECTED
         ? "Hồ sơ chưa cung cấp đủ minh chứng bằng cấp/kinh nghiệm. Vui lòng bổ sung và đăng ký lại."
@@ -731,6 +747,159 @@ const seedProfileChangeRequests = async (usersByIdx, tutorByUserIdx, adminId, se
   console.log(`✓ Đã seed ${docs.length} yêu cầu đổi hồ sơ (pending / approved / rejected).`);
 };
 
+// ──────────────────────────── 8) Đánh giá gia sư (review) ────────────────────────────
+
+const REVIEW_COMMENTS = [
+  "Gia sư dạy rất tận tâm, con tôi tiến bộ rõ rệt sau khóa học. Cảm ơn thầy/cô nhiều!",
+  "Phương pháp dễ hiểu, kiên nhẫn và luôn theo sát tiến độ. Rất hài lòng.",
+  "Thầy/cô nhiệt tình, đúng giờ, bài giảng bám sát chương trình. Sẽ giới thiệu cho bạn bè.",
+  "Con tôi từ mất gốc đã lấy lại được nền tảng, điểm số cải thiện đáng kể.",
+  "Rất chuyên nghiệp và trách nhiệm, phản hồi phụ huynh thường xuyên.",
+];
+
+// Mỗi lớp COMPLETED → người đăng đánh giá gia sư 1 lần; cập nhật lại thống kê rating của gia sư.
+const seedReviews = async (classResult, tutorByUserIdx) => {
+  console.log("→ Seeding đánh giá gia sư cho các lớp đã hoàn thành...");
+  const reviewDocs = [];
+  const statByTutorId = {};
+
+  classResult.completedList.forEach((c, i) => {
+    const tutor = tutorByUserIdx[c.tutorIdx];
+    const rating = randInt(4, 5);
+    reviewDocs.push({
+      tutorId: tutor._id,
+      classId: c.classDoc._id,
+      reviewerId: c.classDoc.createdBy,
+      rating,
+      comment: REVIEW_COMMENTS[i % REVIEW_COMMENTS.length],
+    });
+    const key = String(tutor._id);
+    if (!statByTutorId[key]) statByTutorId[key] = { sum: 0, count: 0 };
+    statByTutorId[key].sum += rating;
+    statByTutorId[key].count += 1;
+  });
+
+  if (reviewDocs.length) await Review.insertMany(reviewDocs);
+
+  // Đồng bộ ratingSum / reviewCount / averageRating của gia sư (như review.service làm).
+  for (const [tutorId, s] of Object.entries(statByTutorId)) {
+    await Tutor.updateOne(
+      { _id: tutorId },
+      {
+        $set: {
+          ratingSum: s.sum,
+          reviewCount: s.count,
+          averageRating: Math.round((s.sum / s.count) * 10) / 10,
+        },
+      },
+    );
+  }
+
+  console.log(`✓ Đã seed ${reviewDocs.length} đánh giá + cập nhật rating cho ${Object.keys(statByTutorId).length} gia sư.`);
+};
+
+// ──────────────────────────── 9) Nhắn tin gia sư ↔ admin (chat) ────────────────────────────
+
+// Kịch bản hội thoại mẫu (mỗi dòng: [vai trò người gửi, nội dung]).
+const CHAT_THREADS = [
+  {
+    idx: 48,
+    msgs: [
+      ["tutor", "Em chào admin ạ, em muốn hỏi về quy trình nhận lớp trên hệ thống."],
+      ["admin", "Chào bạn, bạn cứ ứng tuyển lớp phù hợp với môn và khu vực, sau khi người đăng chọn thì admin sẽ duyệt nhé."],
+      ["tutor", "Dạ em hiểu rồi, em cảm ơn admin ạ!"],
+    ],
+    adminUnread: 0,
+    tutorUnread: 0, // đã đọc cả hai phía
+  },
+  {
+    idx: 49,
+    msgs: [
+      ["tutor", "Admin ơi, hồ sơ của em đã được duyệt nhưng em muốn bổ sung thêm môn dạy ạ."],
+      ["tutor", "Em có thể dạy thêm Tiếng Anh giao tiếp nữa ạ."],
+    ],
+    adminUnread: 2, // gia sư gửi, admin chưa đọc
+    tutorUnread: 0,
+  },
+  {
+    idx: 50,
+    msgs: [
+      ["tutor", "Em muốn cập nhật khu vực dạy sang quận khác thì làm thế nào ạ?"],
+      ["admin", "Bạn vào mục Hồ sơ → gửi yêu cầu đổi thông tin, admin sẽ duyệt trong 1-2 ngày nhé."],
+    ],
+    adminUnread: 0,
+    tutorUnread: 1, // admin trả lời, gia sư chưa đọc
+  },
+  {
+    idx: 51,
+    msgs: [
+      ["admin", "Chào bạn, trung tâm có lớp Toán lớp 9 ở khu vực của bạn, bạn quan tâm thì ứng tuyển nhé."],
+      ["tutor", "Dạ vâng em cảm ơn admin, em sẽ xem và ứng tuyển ngay ạ."],
+    ],
+    adminUnread: 0,
+    tutorUnread: 0,
+  },
+  {
+    idx: 52,
+    msgs: [
+      ["tutor", "Admin cho em hỏi khi nào học phí lớp đã hoàn thành được thanh toán ạ?"],
+    ],
+    adminUnread: 1, // gia sư vừa nhắn, admin chưa đọc
+    tutorUnread: 0,
+  },
+];
+
+const seedConversations = async (usersByIdx, adminId) => {
+  console.log("→ Seeding hội thoại nhắn tin gia sư ↔ admin...");
+  let convCount = 0;
+  let msgCount = 0;
+
+  for (const thread of CHAT_THREADS) {
+    const tutorUser = usersByIdx[thread.idx];
+    const conv = await Conversation.findOneAndUpdate(
+      { tutorUserId: tutorUser._id },
+      { $set: { tutorUserId: tutorUser._id } },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
+
+    // Mốc thời gian tăng dần để hiển thị đúng thứ tự (mỗi tin cách nhau ~3 phút).
+    const baseTime = Date.now() - thread.msgs.length * 3 * 60 * 1000;
+    const docs = thread.msgs.map((m, i) => {
+      const at = new Date(baseTime + i * 3 * 60 * 1000);
+      const isTutor = m[0] === "tutor";
+      return {
+        conversationId: conv._id,
+        senderId: isTutor ? tutorUser._id : adminId,
+        senderRole: isTutor ? CHAT_ROLES.TUTOR : CHAT_ROLES.ADMIN,
+        content: m[1],
+        createdAt: at,
+        updatedAt: at,
+      };
+    });
+    // timestamps:false để giữ nguyên createdAt đã set (đảm bảo thứ tự tin nhắn).
+    await Message.insertMany(docs, { timestamps: false });
+
+    const last = thread.msgs[thread.msgs.length - 1];
+    await Conversation.updateOne(
+      { _id: conv._id },
+      {
+        $set: {
+          lastMessage: last[1],
+          lastMessageAt: docs[docs.length - 1].createdAt,
+          lastSenderRole: last[0] === "tutor" ? CHAT_ROLES.TUTOR : CHAT_ROLES.ADMIN,
+          adminUnread: thread.adminUnread,
+          tutorUnread: thread.tutorUnread,
+        },
+      },
+    );
+
+    convCount += 1;
+    msgCount += docs.length;
+  }
+
+  console.log(`✓ Đã seed ${convCount} hội thoại + ${msgCount} tin nhắn (trộn đã đọc / chưa đọc).`);
+};
+
 // ──────────────────────────── Orchestrator ────────────────────────────
 
 const main = async () => {
@@ -741,8 +910,13 @@ const main = async () => {
   // sẽ trỏ tới class không còn tồn tại (populate trả null → UI hiện trống).
   const removedApps = await ClassApplication.deleteMany({});
   const removedClasses = await Class.deleteMany({});
+  // Review tham chiếu classId → reset cùng lúc tránh "mồ côi". Chat là dữ liệu demo
+  // thuần → reset sạch để idempotent.
+  const removedReviews = await Review.deleteMany({});
+  await Conversation.deleteMany({});
+  await Message.deleteMany({});
   console.log(
-    `→ Reset: đã xoá ${removedClasses.deletedCount} lớp và ${removedApps.deletedCount} đơn nhận lớp cũ trước khi seed.`,
+    `→ Reset: đã xoá ${removedClasses.deletedCount} lớp, ${removedApps.deletedCount} đơn nhận lớp, ${removedReviews.deletedCount} đánh giá và toàn bộ hội thoại chat cũ trước khi seed.`,
   );
 
   const areas = await loadAreas();
@@ -778,10 +952,17 @@ const main = async () => {
   // 7) Profile change requests
   await seedProfileChangeRequests(usersByIdx, tutorByUserIdx, adminId, seededUserIds);
 
+  // 8) Reviews (đánh giá gia sư cho lớp đã hoàn thành)
+  await seedReviews(classResult, tutorByUserIdx);
+
+  // 9) Conversations + messages (nhắn tin gia sư ↔ admin)
+  await seedConversations(usersByIdx, adminId);
+
   console.log("\n✅ Seed dữ liệu demo toàn diện hoàn tất!");
   console.log("   • Admin demo:  admin@webtutor.dev");
   console.log(`   • Mật khẩu chung: ${DEFAULT_PASSWORD}`);
   console.log("   • Tài khoản Google (không mật khẩu): các user idx 13 & 97.");
+  console.log("   • Có sẵn đánh giá gia sư + hội thoại chat gia sư↔admin để demo.");
   await mongoose.disconnect();
 };
 

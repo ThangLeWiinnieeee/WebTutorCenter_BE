@@ -98,6 +98,50 @@ const findNewTutors = async (days = 7, limit = 10) => {
     .limit(limit);
 };
 
+// Top gia sư uy tín: xếp hạng bằng điểm Bayesian (IMDb) để cân bằng giữa SỐ LƯỢNG
+// đánh giá và ĐIỂM trung bình — tránh việc 1 đánh giá 5 sao vượt mặt người có nhiều
+// đánh giá điểm cao. Trả về mảng _id của top `limit` gia sư đã duyệt & có đánh giá.
+//   score = (v/(v+m))*R + (m/(v+m))*C
+//   v = reviewCount, R = averageRating, C = điểm trung bình toàn cục, m = hằng số làm mượt
+const TRUSTED_BAYESIAN_M = 5;
+
+const findTrustedTutorIds = async (limit = 10) => {
+  const baseMatch = { status: TUTOR_STATUS.APPROVED, reviewCount: { $gte: 1 } };
+
+  // C = tổng số sao / tổng lượt đánh giá trên toàn bộ gia sư đã duyệt có đánh giá.
+  const [global] = await Tutor.aggregate([
+    { $match: baseMatch },
+    { $group: { _id: null, sumRating: { $sum: "$ratingSum" }, sumCount: { $sum: "$reviewCount" } } },
+  ]);
+  if (!global || !global.sumCount) return [];
+  const C = global.sumRating / global.sumCount;
+  const m = TRUSTED_BAYESIAN_M;
+
+  const docs = await Tutor.aggregate([
+    { $match: baseMatch },
+    {
+      $addFields: {
+        _trustScore: {
+          $add: [
+            {
+              $multiply: [
+                { $divide: ["$reviewCount", { $add: ["$reviewCount", m] }] },
+                "$averageRating",
+              ],
+            },
+            { $multiply: [{ $divide: [m, { $add: ["$reviewCount", m] }] }, C] },
+          ],
+        },
+      },
+    },
+    { $sort: { _trustScore: -1, reviewCount: -1, averageRating: -1, createdAt: -1 } },
+    { $limit: limit },
+    { $project: { _id: 1 } },
+  ]);
+
+  return docs.map((d) => d._id);
+};
+
 // Tìm kiếm & lọc gia sư đã duyệt.
 // Toàn bộ điều kiện lọc (kể cả dữ liệu nằm ở User: tên, giới tính, năm sinh) đều được
 // áp dụng ở tầng DB qua aggregation TRƯỚC khi phân trang & đếm tổng → kết quả và số
@@ -244,6 +288,7 @@ module.exports = {
   findApprovedForReviewAdmin,
   findTopTutorsThisMonth,
   findById,
+  findTrustedTutorIds,
   create,
   update,
   updateByUserId,

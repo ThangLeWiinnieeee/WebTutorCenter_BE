@@ -1,17 +1,18 @@
 # WebTutorCenter Backend
 
-Backend API cho hệ thống quản lý trung tâm gia sư trực tuyến. Dự án dùng Express + MongoDB theo kiến trúc layer rõ ràng: `routes -> controller -> service -> mapper -> repository -> model`.
+Backend API cho hệ thống quản lý trung tâm gia sư trực tuyến. Dự án dùng Express + MongoDB theo kiến trúc layer rõ ràng: `routes -> controller -> service -> mapper -> repository -> model`. Chat realtime giữa người dùng và admin chạy trên Socket.IO dùng chung HTTP server với Express.
 
 ## Tech Stack
 
 - Node.js, Express 4
 - MongoDB, Mongoose 8
+- Socket.IO 4 (chat realtime, xác thực bằng access token)
 - JWT access/refresh token
 - Joi validation
 - bcryptjs
 - Nodemailer (Gmail)
 - google-auth-library (đăng nhập Google)
-- Cloudinary + Multer (+ multer-storage-cloudinary) — upload avatar
+- Cloudinary + Multer (+ multer-storage-cloudinary) — upload avatar, giấy tờ gia sư, ảnh chat
 - cookie-parser, morgan, cors, dotenv
 
 ## Yêu Cầu
@@ -19,7 +20,7 @@ Backend API cho hệ thống quản lý trung tâm gia sư trực tuyến. Dự 
 - Node.js
 - MongoDB
 - Gmail app password nếu dùng OTP email
-- Cloudinary account nếu dùng upload avatar
+- Cloudinary account nếu dùng upload avatar/giấy tờ/ảnh chat
 - Google OAuth client nếu dùng đăng nhập Google
 
 ## Cài Đặt
@@ -46,7 +47,7 @@ Base API:
 http://localhost:<PORT>/api
 ```
 
-Khi server khởi động, `startClassLifecycleScheduler()` chạy job nền định kỳ (mỗi 15 phút) để đánh dấu `expired` cho các bài đăng đã tới giờ học mà chưa có gia sư nhận.
+`server.js` tạo một HTTP server dùng chung cho Express và Socket.IO (`initSocket`). Khi server khởi động, `startClassLifecycleScheduler()` chạy job nền định kỳ (mỗi 15 phút) để đánh dấu `expired` cho các bài đăng đã tới giờ học mà chưa có gia sư nhận.
 
 ## Seed Dữ Liệu
 
@@ -66,7 +67,7 @@ npm run seed:full               # toàn bộ bộ dữ liệu demo
 npm run seed:update-tutor-fields  # backfill field thống kê cho tutor cũ
 ```
 
-> ⚠️ Một số script seed dùng `MONGODB_URI`, vài script dùng `MONGO_URI`; một số seed cũ tham chiếu đường dẫn constants có thể đã thay đổi. Kiểm tra đường dẫn/biến môi trường trước khi chạy. `scripts/seedSubjects.js` tồn tại nhưng chưa có npm script tương ứng — chạy trực tiếp `node scripts/seedSubjects.js` nếu cần.
+> ⚠️ Một số script seed dùng `MONGODB_URI`, vài script dùng `MONGO_URI`; một số seed cũ tham chiếu đường dẫn constants có thể đã thay đổi. Kiểm tra đường dẫn/biến môi trường trước khi chạy. `scripts/seedSubjects.js` đã có npm script `seed:subjects`. Các script chạy qua `-r ./scripts/_atlasDns.js` để fix DNS khi kết nối MongoDB Atlas.
 
 ## Cấu Trúc Chính
 
@@ -75,23 +76,27 @@ src/
 ├── controllers/        # Nhận req/res, gọi service, trả successResponse()
 ├── services/           # Logic nghiệp vụ, throw AppError
 ├── mappers/            # Chuyển DB document → DTO (user, tutor, class, class.application,
-│                       #   notification, promo, review, profileChangeRequest)
+│                       #   notification, promo, review, profileChangeRequest, conversation, message)
 ├── repositories/       # Truy vấn MongoDB/Mongoose
 ├── models/             # Mongoose schema
 ├── validations/        # Joi schema cho request validation
 ├── routes/             # Khai báo endpoint + middleware; index.js mount tất cả dưới /api
-├── configs/            # database, cloudinary, cors
+├── configs/            # database, cloudinary, cors, dns, socket (Socket.IO)
 ├── constants/          # status, message, role, otpType, accountType, occupationStatus, tutor
 ├── middlewares/        # auth (+ .optional), role, validate, error
 └── utils/              # token, response, hash, email, otp, upload, pagination,
                         #   code, classLifecycle (scheduler), AppError
 ```
 
-Submodule trong `classes`: `class.application.*` (ứng tuyển/chọn/hủy nhận lớp) và `class.pricing.*` (model + repository tính học phí, có cache). Module `otp` là nội bộ của auth (`otp.model`, `otp.repository`, `utils/otp`). `pendingRegistration` lưu đăng ký chờ xác thực OTP trước khi tạo user.
+Submodule trong `classes`: `class.application.*` (ứng tuyển / chọn / hủy nhận lớp + lời mời dạy trực tiếp) và `class.pricing.*` (model + repository tính học phí, có cache). Module `otp` là nội bộ của auth (`otp.model`, `otp.repository`, `utils/otp`). `pendingRegistration` lưu đăng ký chờ xác thực OTP trước khi tạo user.
+
+**Khu vực admin** được tách thành nhiều router/controller/service theo từng chức năng thay vì một module `admin` duy nhất: `userAdmin`, `classAdmin`, `trashAdmin`, `tutorAdmin`, `classApplicationAdmin`, `cancellationAdmin`, `reviewAdmin`, `profileChangeAdmin`. Tất cả được gom lại trong `admin.routes.js` và mount dưới `/api/admin` (đã áp sẵn `authMiddleware` + `roleMiddleware("admin")`).
+
+**Chat** gồm `chat.controller/service/validation`, model `conversation`/`message`, repository tương ứng và mapper `conversation`/`message`. Mỗi người dùng (gia sư hoặc học viên) có đúng một cuộc trò chuyện với admin (`findOrCreateByTutorUserId`).
 
 ## API Overview
 
-Tất cả route mount dưới `/api` (`src/routes/index.js`): `auth`, `users`, `tutors`, `locations`, `notifications`, `classes`, `lookups`, `subjects`, `admin`, `settings`, `promos`, `reviews`.
+Tất cả route mount dưới `/api` (`src/routes/index.js`): `auth`, `users`, `tutors`, `locations`, `notifications`, `classes`, `lookups`, `subjects`, `admin`, `settings`, `promos`, `reviews`, `chat`.
 
 ### Auth — `/api/auth`
 
@@ -121,6 +126,7 @@ Tất cả route mount dưới `/api` (`src/routes/index.js`): `auth`, `users`, 
 | Method | Endpoint | Mô tả |
 |---|---|---|
 | POST | `/register` | Đăng ký hồ sơ gia sư (trạng thái PENDING) |
+| POST | `/upload-document` | Upload ảnh giấy tờ (CCCD/thẻ sinh viên/bằng cấp) → `{ url }` |
 | GET | `/profile` | Hồ sơ gia sư của user hiện tại |
 | GET | `/profile/change-request` | Yêu cầu đổi hồ sơ đang chờ của tutor |
 | POST | `/profile/change-request` | Gia sư gửi yêu cầu đổi hồ sơ (chờ admin duyệt) |
@@ -166,6 +172,10 @@ Tất cả route mount dưới `/api` (`src/routes/index.js`): `auth`, `users`, 
 |---|---|---|
 | POST | `/quote` | Báo giá học phí (có thể áp mã ưu đãi) |
 | POST | `/` | Đăng bài tìm gia sư (sinh `classCode`) |
+| POST | `/invite` | Người đăng mời đích danh một gia sư dạy lớp |
+| GET | `/invitations` | Gia sư xem lời mời dạy lớp của mình (role tutor) |
+| POST | `/invitations/:applicationId/accept` | Gia sư nhận lời mời (role tutor) |
+| POST | `/invitations/:applicationId/decline` | Gia sư từ chối lời mời (role tutor) |
 | GET | `/` | Danh sách bài đăng (mask thông tin nhạy cảm theo người xem) |
 | GET | `/subjects` | Danh sách môn |
 | GET | `/pricing-config` | Cấu hình tính học phí |
@@ -193,18 +203,41 @@ Tất cả route mount dưới `/api` (`src/routes/index.js`): `auth`, `users`, 
 | Method | Endpoint | Mô tả |
 |---|---|---|
 | POST | `/` | Người đăng đánh giá gia sư (lớp đã hoàn thành) |
-| GET | `/tutor/:tutorId` | Danh sách đánh giá công khai của gia sư |
+| GET | `/tutor/:tutorId` | Danh sách đánh giá công khai của gia sư (cũng dùng cho gia sư xem đánh giá của chính mình) |
+
+### Chat — `/api/chat` (yêu cầu đăng nhập)
+
+Mỗi người dùng không phải admin (gia sư hoặc học viên) có một cuộc trò chuyện duy nhất với admin.
+
+| Method | Endpoint | Vai trò | Mô tả |
+|---|---|---|---|
+| GET | `/my-conversation` | tutor/user | Lấy (hoặc tạo) hội thoại của mình + 1 trang tin nhắn |
+| GET | `/my-conversation/unread-count` | tutor/user | Số tin chưa đọc của mình |
+| POST | `/my-conversation/messages` | tutor/user | Gửi tin nhắn văn bản |
+| POST | `/my-conversation/images` | tutor/user | Gửi tin nhắn kèm ảnh (multipart `image`) |
+| POST | `/my-conversation/read` | tutor/user | Đánh dấu đã đọc |
+| GET | `/conversations` | admin | Danh sách hội thoại (lọc theo tên/email) |
+| GET | `/conversations/unread-count` | admin | Tổng tin chưa đọc (badge) |
+| POST | `/conversations` | admin | Admin chủ động mở hội thoại với một người dùng |
+| GET | `/conversations/:id/messages` | admin | Tin nhắn của một hội thoại |
+| POST | `/conversations/:id/messages` | admin | Admin gửi tin nhắn |
+| POST | `/conversations/:id/images` | admin | Admin gửi tin nhắn kèm ảnh |
+| POST | `/conversations/:id/read` | admin | Đánh dấu đã đọc |
+
+**Realtime (Socket.IO):** client kết nối tới cùng host (không có `/api`), xác thực bằng access token qua `handshake.auth.token`. Mỗi user vào phòng `user:<id>`, admin vào thêm phòng `admins`. Server phát các sự kiện `chat:message`, `chat:read`, `chat:conversation` để đồng bộ tin nhắn, trạng thái đã đọc và hội thoại mới.
 
 ### Admin — `/api/admin` (toàn bộ yêu cầu role `admin`)
 
-- **Users**: `GET /users`, `PATCH /users/:id`, `PATCH /users/:id/status`, `DELETE /users/:id` (xóa mềm; chặn tự thao tác chính mình)
-- **Classes**: `GET /classes`, `GET /classes/:id`, `DELETE /classes/:id`
-- **Trash** (thùng rác / xóa mềm): `GET /trash/counts`, `GET /trash/:type`, `PATCH /trash/:type/:id/restore`, `DELETE /trash/:type/:id`
-- **Tutors**: `GET /tutors/stats`, `GET /tutors/pending`, `PATCH /tutors/:id/approve`, `PATCH /tutors/:id/reject`
-- **Class applications**: `GET /class-applications/stats`, `GET /class-applications`, `PATCH /class-applications/:id/approve|reject`
-- **Application cancellations**: `GET /application-cancellations`, `PATCH /application-cancellations/:id/approve|reject`
-- **Reviews**: `GET /reviews/tutors`, `GET /reviews/tutors/:tutorId`, `DELETE /reviews/:id`
-- **Profile changes**: `GET /profile-changes`, `PATCH /profile-changes/:id/approve|reject`
+Mỗi nhóm là một router con (`<chức năng>Admin.routes.js`) mount trong `admin.routes.js`:
+
+- **Users** (`/users`): `GET /`, `PATCH /:id`, `PATCH /:id/status`, `DELETE /:id` (xóa mềm; chặn tự thao tác chính mình)
+- **Classes** (`/classes`): `GET /`, `GET /:id`, `DELETE /:id`
+- **Trash** (`/trash`, thùng rác / xóa mềm): `GET /counts`, `GET /:type`, `PATCH /:type/:id/restore`, `DELETE /:type/:id`
+- **Tutors** (`/tutors`): `GET /stats`, `GET /pending`, `PATCH /:id/approve`, `PATCH /:id/reject`
+- **Class applications** (`/class-applications`): `GET /stats`, `GET /`, `PATCH /:id/approve|reject`
+- **Application cancellations** (`/application-cancellations`): `GET /`, `PATCH /:id/approve|reject`
+- **Reviews** (`/reviews`): `GET /tutors`, `GET /tutors/:tutorId`, `DELETE /:id`
+- **Profile changes** (`/profile-changes`): `GET /`, `PATCH /:id/approve|reject`
 
 ### Settings — `/api/settings`
 
@@ -216,12 +249,14 @@ Tất cả route mount dưới `/api` (`src/routes/index.js`): `auth`, `users`, 
 ## Luồng Nghiệp Vụ Chính
 
 - **Đăng ký**: tạo pending registration + gửi OTP; verify OTP mới tạo user thực sự. Login trả access token, refresh token lưu cookie httpOnly.
-- **Gia sư**: user gửi hồ sơ → `tutor.service` tạo profile `PENDING` + notify; `admin.service` approve (→ `APPROVED`, nâng role user lên `tutor`) hoặc reject (kèm lý do).
-- **Đổi hồ sơ gia sư**: tutor gửi `profile change request` (whitelist field) → notify admin → admin duyệt mới áp dụng vào Tutor.
+- **Gia sư**: user gửi hồ sơ kèm ảnh giấy tờ (CCCD + thẻ sinh viên/bằng cấp) → `tutor.service` tạo profile `PENDING` + notify; `tutorAdmin.service` approve (→ `APPROVED`, nâng role user lên `tutor`) hoặc reject (kèm lý do). Gia sư phải có hồ sơ giấy tờ đầy đủ trước khi được nhận/được mời lớp.
+- **Đổi hồ sơ gia sư**: tutor gửi `profile change request` (whitelist field) → notify admin → `profileChangeAdmin.service` duyệt mới áp dụng vào Tutor.
 - **Vòng đời bài đăng** (`CLASS_STATUS`): `open` → `matched` (đã ghép gia sư) / `expired` (quá giờ chưa có ai nhận) → `completed` (hai phía xác nhận). Job nền tự đánh dấu `expired`.
-- **Ghép gia sư** (`CLASS_APPLICATION_STATUS`): tutor `apply` (PENDING) → người đăng `select` 1 gia sư (SELECTED) → admin approve (APPROVED → lớp `matched`, các ứng viên khác `NOT_SELECTED`, `$inc` thống kê tutor) / reject (REJECTED, người đăng chọn lại). Tutor có thể xin hủy đơn (CANCEL_REQUESTED) → admin duyệt (CANCELLED) hoặc từ chối.
+- **Ghép gia sư qua ứng tuyển** (`CLASS_APPLICATION_STATUS`): tutor `apply` (PENDING) → người đăng `select` 1 gia sư (SELECTED) → admin approve (APPROVED → lớp `matched`, các ứng viên khác `NOT_SELECTED`, `$inc` thống kê tutor) / reject (REJECTED, người đăng chọn lại). Tutor có thể xin hủy đơn (CANCEL_REQUESTED) → `cancellationAdmin` duyệt (CANCELLED) hoặc từ chối.
+- **Ghép gia sư qua lời mời trực tiếp** (`CLASS_APPLICATION_ORIGIN`): người đăng `invite` một gia sư cụ thể → tạo đơn lời mời + notify gia sư → gia sư `accept` (vào luồng duyệt như ứng tuyển) hoặc `decline`.
 - **Hoàn thành & thưởng**: cả người đăng và gia sư xác nhận `complete` → lớp `completed` → tặng voucher (notify `CLASS_COMPLETED_REWARD`). Người đăng được đánh giá gia sư 1 lần/lớp; đánh giá cập nhật `ratingSum`/`reviewCount`/`averageRating` của tutor.
 - **Mã ưu đãi**: admin tạo mã toàn cục; voucher cá nhân (`ownerUserId`) nằm trong kho của từng user; áp ở màn báo giá (`promo.validate`), lưu `promoCode`/`promoDiscount`/`finalFeePerMonth` trên lớp.
+- **Chat người dùng ↔ admin**: gia sư/học viên nhắn tới admin qua hội thoại duy nhất của mình; admin xem danh sách và trả lời. Tin nhắn (kèm ảnh tùy chọn) lưu MongoDB, đồng bộ realtime qua Socket.IO; đếm chưa đọc hai phía (`tutorUnread`/`adminUnread`).
 - **Thông báo**: lưu trong MongoDB theo `userId`; khi mark read set `readAt`, TTL tự xóa sau 7 ngày.
 - **Xóa mềm / thùng rác**: classes, promos, reviews, users dùng `deletedAt`/`deletedBy`; admin xem/khôi phục/xóa hẳn qua `/admin/trash`.
 
@@ -234,6 +269,7 @@ Tất cả route mount dưới `/api` (`src/routes/index.js`): `auth`, `users`, 
 - Middleware order: `authMiddleware`(`/.optional`) → `roleMiddleware(...)` → `validate`/`validateQuery`/`validateBody` → controller.
 - Joi validation đặt trong `<module>.validation.js`.
 - Notification nghiệp vụ tạo ở service khi trạng thái đổi, không chỉ ở FE.
+- Realtime chat phát qua helper `emitToUser`/`emitToAdmins` (`configs/socket.js`); service phát sự kiện khi có tin nhắn/đọc/hội thoại mới — an toàn khi Socket.IO chưa khởi tạo.
 - Mask thông tin nhạy cảm lớp (`contactPhone`/`locationLabel`) theo người xem; chỉ admin, người đăng, hoặc tutor có đơn `APPROVED` thấy đầy đủ.
 - Không hardcode tỉnh/quận/môn; dùng `locations`/`lookup`/`subject`.
 - **Ngoại lệ có chủ đích**: `settings` không có service (logic trong controller, thao tác model `Settings` key/value `Mixed`).
