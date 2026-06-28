@@ -20,8 +20,20 @@ const countByConversation = async (conversationId) => {
   return Message.countDocuments({ conversationId });
 };
 
+// Xóa toàn bộ tin nhắn của một hội thoại (xóa vĩnh viễn tài khoản)
+const deleteByConversationId = async (conversationId) => {
+  return Message.deleteMany({ conversationId });
+};
+
+// Xóa toàn bộ tin nhắn do một người dùng gửi (kể cả nằm ở hội thoại khác, vd admin)
+const deleteBySenderId = async (senderId) => {
+  return Message.deleteMany({ senderId });
+};
+
 module.exports = {
   create,
   findByConversationPage,
   countByConversation,
+  deleteByConversationId,
+  deleteBySenderId,
 };

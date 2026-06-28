@@ -1,13 +1,72 @@
 const userRepository = require("../repositories/user.repository");
+const tutorRepository = require("../repositories/tutor.repository");
 const classRepository = require("../repositories/class.repository");
 const promoRepository = require("../repositories/promo.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
 const reviewRepository = require("../repositories/review.repository");
+const conversationRepository = require("../repositories/conversation.repository");
+const messageRepository = require("../repositories/message.repository");
+const notificationRepository = require("../repositories/notification.repository");
+const profileChangeRequestRepository = require("../repositories/profileChangeRequest.repository");
+const otpRepository = require("../repositories/otp.repository");
+const pendingRegistrationRepository = require("../repositories/pendingRegistration.repository");
 const reviewService = require("./review.service");
 const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const { UserMapper, ClassMapper, PromoMapper, ReviewMapper } = require("../mappers");
 const { buildPagination } = require("../utils/pagination");
+const { deleteImagesFromCloudinary } = require("../utils/upload");
+
+// Xóa vĩnh viễn TẤT CẢ dữ liệu của một tài khoản khỏi DB + ảnh trên Cloudinary.
+// Chỉ chạy khi xóa vĩnh viễn (purge). Xóa mềm KHÔNG đụng tới để còn khôi phục/backup.
+const purgeUserData = async (user) => {
+  const userId = user._id;
+  const tutor = await tutorRepository.findByUserId(userId);
+  const tutorId = tutor?._id;
+
+  // 1) Xóa ảnh trên Cloudinary: avatar + (nếu là gia sư) CCCD trước/sau, thẻ SV trước/sau, bằng cấp.
+  const imageUrls = [user.avatar];
+  if (tutor) {
+    imageUrls.push(
+      tutor.cccdFrontImage,
+      tutor.cccdBackImage,
+      tutor.studentCardFrontImage,
+      tutor.studentCardBackImage,
+      ...(tutor.certificateImages || [])
+    );
+  }
+  await deleteImagesFromCloudinary(imageUrls);
+
+  // 2) Thu thập dữ liệu phụ thuộc trước khi xóa.
+  const classIds = await classRepository.findAllIdsByCreatedBy(userId);
+  const conversation = await conversationRepository.findByTutorUserId(userId);
+
+  // 3) Xóa song song các collection liên quan (độc lập nhau).
+  await Promise.all([
+    // Bài đăng của user + đơn nhận lớp thuộc các bài đăng đó
+    classApplicationRepository.deleteByClassIds(classIds),
+    classRepository.deleteAllByCreatedBy(userId),
+    // Hồ sơ gia sư + đơn nhận lớp & đánh giá liên quan tới gia sư này
+    ...(tutorId
+      ? [
+          classApplicationRepository.deleteByTutorId(tutorId),
+          reviewRepository.deleteByTutorId(tutorId),
+          tutorRepository.deleteByUserId(userId),
+        ]
+      : []),
+    // Đánh giá do chính user viết (với vai trò người đăng bài)
+    reviewRepository.deleteByReviewerId(userId),
+    // Hội thoại + tin nhắn
+    ...(conversation ? [messageRepository.deleteByConversationId(conversation._id)] : []),
+    messageRepository.deleteBySenderId(userId),
+    conversationRepository.deleteByTutorUserId(userId),
+    // Thông báo, yêu cầu đổi hồ sơ, dữ liệu tạm theo email
+    notificationRepository.deleteByUserId(userId),
+    profileChangeRequestRepository.deleteByUserId(userId),
+    otpRepository.deleteByEmail(user.email),
+    pendingRegistrationRepository.deleteByEmail(user.email),
+  ]);
+};
 
 // Đăng ký xử lý cho từng loại dữ liệu có thể nằm trong thùng rác
 const TRASH_ENTITIES = {
@@ -18,7 +77,12 @@ const TRASH_ENTITIES = {
       return { items: UserMapper.toDTOs(users), totalItems };
     },
     restore: (id) => userRepository.restore(id),
-    purge: (id) => userRepository.hardDelete(id),
+    // Xóa vĩnh viễn người dùng kèm TẤT CẢ dữ liệu liên quan trong DB + ảnh trên Cloudinary.
+    purge: async (id) => {
+      const purged = await userRepository.hardDelete(id);
+      if (purged) await purgeUserData(purged);
+      return purged;
+    },
   },
   classes: {
     label: "Bài đăng",

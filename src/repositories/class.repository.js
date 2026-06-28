@@ -202,6 +202,17 @@ const findByCreatedBy = async (userId, options = {}) => {
   return { classes, totalItems };
 };
 
+// Lấy id tất cả bài đăng của một người dùng (KỂ CẢ đã xóa mềm) — phục vụ xóa vĩnh viễn tài khoản
+const findAllIdsByCreatedBy = async (userId) => {
+  const docs = await ClassModel.find({ createdBy: userId }).select("_id").lean();
+  return docs.map((d) => d._id);
+};
+
+// Xóa toàn bộ bài đăng của một người dùng (dùng khi xóa vĩnh viễn tài khoản)
+const deleteAllByCreatedBy = async (userId) => {
+  return await ClassModel.deleteMany({ createdBy: userId });
+};
+
 module.exports = {
   create,
   findById,
@@ -220,4 +231,6 @@ module.exports = {
   findDeleted,
   deleteById,
   hardDelete,
+  findAllIdsByCreatedBy,
+  deleteAllByCreatedBy,
 };

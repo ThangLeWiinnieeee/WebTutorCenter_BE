@@ -49,6 +49,11 @@ const update = async (id, updateData) => {
     .populate("tutorId");
 };
 
+// Xóa toàn bộ yêu cầu đổi hồ sơ của một người dùng (xóa vĩnh viễn tài khoản)
+const deleteByUserId = async (userId) => {
+  return await ProfileChangeRequest.deleteMany({ userId });
+};
+
 module.exports = {
   create,
   findPendingByTutorId,
@@ -56,4 +61,5 @@ module.exports = {
   findPage,
   countGrouped,
   update,
+  deleteByUserId,
 };

@@ -283,6 +283,11 @@ const findApprovedForReviewAdmin = async ({ page = 1, limit = 10, keyword = "" }
   return { items, totalItems };
 };
 
+// Xóa hồ sơ gia sư của một người dùng (xóa vĩnh viễn tài khoản)
+const deleteByUserId = async (userId) => {
+  return await Tutor.findOneAndDelete({ userId });
+};
+
 module.exports = {
   findByUserId,
   findApprovedForReviewAdmin,
@@ -300,4 +305,5 @@ module.exports = {
   findTopTutors,
   findNewTutors,
   searchTutors,
+  deleteByUserId,
 };
