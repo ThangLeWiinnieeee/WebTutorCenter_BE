@@ -1,9 +1,9 @@
 const classRepository = require("../repositories/class.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
 const notificationService = require("./notification.service");
-const { NOTIFICATION_TYPES } = require("../models/notification.model");
-const { CLASS_APPLICATION_STATUS } = require("../models/class.application.model");
-const { CLASS_STATUS } = require("../models/class.model");
+const { NOTIFICATION_TYPES } = require("../constants/notification");
+const { CLASS_APPLICATION_STATUS } = require("../constants/classApplication");
+const { CLASS_STATUS } = require("../constants/class");
 const AppError = require("../utils/AppError");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");

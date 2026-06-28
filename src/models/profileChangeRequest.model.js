@@ -1,10 +1,5 @@
 const mongoose = require("mongoose");
-
-const PROFILE_CHANGE_STATUS = {
-  PENDING: "pending",
-  APPROVED: "approved",
-  REJECTED: "rejected",
-};
+const { PROFILE_CHANGE_STATUS } = require("../constants/profileChangeRequest");
 
 // Yêu cầu gia sư đổi thông tin hồ sơ — chờ admin duyệt trước khi áp dụng vào Tutor.
 // `changes` chỉ chứa các field được phép sửa (whitelist ở service).
@@ -53,4 +48,3 @@ const profileChangeRequestSchema = new mongoose.Schema(
 const ProfileChangeRequest = mongoose.model("ProfileChangeRequest", profileChangeRequestSchema);
 
 module.exports = ProfileChangeRequest;
-module.exports.PROFILE_CHANGE_STATUS = PROFILE_CHANGE_STATUS;

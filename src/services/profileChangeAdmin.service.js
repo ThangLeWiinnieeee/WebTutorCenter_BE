@@ -1,8 +1,8 @@
 const tutorRepository = require("../repositories/tutor.repository");
 const profileChangeRequestRepository = require("../repositories/profileChangeRequest.repository");
 const notificationService = require("./notification.service");
-const { NOTIFICATION_TYPES } = require("../models/notification.model");
-const { PROFILE_CHANGE_STATUS } = require("../models/profileChangeRequest.model");
+const { NOTIFICATION_TYPES } = require("../constants/notification");
+const { PROFILE_CHANGE_STATUS } = require("../constants/profileChangeRequest");
 const AppError = require("../utils/AppError");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");

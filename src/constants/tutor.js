@@ -12,11 +12,6 @@ const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const PHONE_REGEX = /^(84|0)(3|5|7|8|9)[0-9]{8}$/;
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-const CLASS_STATUS = {
-  OPEN: "open",
-  CLOSED: "closed",
-};
-
 module.exports = {
   OCCUPATION_STATUS,
   TUTOR_STATUS,
@@ -25,5 +20,4 @@ module.exports = {
   DAYS_OF_WEEK,
   PHONE_REGEX,
   TIME_REGEX,
-  CLASS_STATUS,
 };

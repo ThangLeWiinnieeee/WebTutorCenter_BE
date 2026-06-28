@@ -1,8 +1,8 @@
+const { ClassApplication } = require("../models/class.application.model");
 const {
-  ClassApplication,
   CLASS_APPLICATION_STATUS,
   CLASS_APPLICATION_ORIGIN,
-} = require("../models/class.application.model");
+} = require("../constants/classApplication");
 
 // Đầy đủ các field bài đăng mà mapper/khu vực admin cần để hiển thị chi tiết.
 const POPULATE_CLASS =

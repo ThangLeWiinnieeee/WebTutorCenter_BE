@@ -1,11 +1,5 @@
 const mongoose = require("mongoose");
-
-// Vai trò người tham gia trong một cuộc trò chuyện người dùng ↔ admin.
-// "tutor" đại diện cho phía người dùng (gồm cả gia sư lẫn học viên), "admin" là phía quản trị.
-const CHAT_ROLES = {
-  TUTOR: "tutor",
-  ADMIN: "admin",
-};
+const { CHAT_ROLES } = require("../constants/chat");
 
 // Mỗi người dùng (gia sư hoặc học viên) có duy nhất một cuộc trò chuyện với "phía admin"
 // (bất kỳ admin nào cũng đọc/trả lời được). Vì vậy conversation được khóa theo `tutorUserId`.
@@ -56,4 +50,4 @@ conversationSchema.index({ lastMessageAt: -1 });
 
 const Conversation = mongoose.model("Conversation", conversationSchema);
 
-module.exports = { Conversation, CHAT_ROLES };
+module.exports = { Conversation };

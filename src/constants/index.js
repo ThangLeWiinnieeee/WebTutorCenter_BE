@@ -11,8 +11,12 @@ const {
   DAYS_OF_WEEK,
   PHONE_REGEX,
   TIME_REGEX,
-  CLASS_STATUS,
 } = require("./tutor");
+const { CLASS_STATUS } = require("./class");
+const { CLASS_APPLICATION_STATUS, CLASS_APPLICATION_ORIGIN } = require("./classApplication");
+const { PROFILE_CHANGE_STATUS } = require("./profileChangeRequest");
+const { NOTIFICATION_TYPES } = require("./notification");
+const { CHAT_ROLES } = require("./chat");
 
 module.exports = {
   MESSAGE,
@@ -28,4 +32,9 @@ module.exports = {
   PHONE_REGEX,
   TIME_REGEX,
   CLASS_STATUS,
+  CLASS_APPLICATION_STATUS,
+  CLASS_APPLICATION_ORIGIN,
+  PROFILE_CHANGE_STATUS,
+  NOTIFICATION_TYPES,
+  CHAT_ROLES,
 };

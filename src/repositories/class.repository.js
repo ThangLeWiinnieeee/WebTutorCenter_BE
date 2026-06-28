@@ -1,5 +1,5 @@
 const ClassModel = require("../models/class.model");
-const { CLASS_STATUS } = require("../models/class.model");
+const { CLASS_STATUS } = require("../constants/class");
 const { GENDER_OPTIONS } = require("../constants/tutor");
 
 // Các mức trình độ cụ thể mà bài đăng có thể yêu cầu (ngoài "any")

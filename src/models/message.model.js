@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { CHAT_ROLES } = require("./conversation.model");
+const { CHAT_ROLES } = require("../constants/chat");
 
 const messageSchema = new mongoose.Schema(
   {

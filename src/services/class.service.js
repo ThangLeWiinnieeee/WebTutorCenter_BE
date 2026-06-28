@@ -14,12 +14,12 @@ const classPricingRepository = require("../repositories/class.pricing.repository
 const promoService = require("./promo.service");
 const promoRepository = require("../repositories/promo.repository");
 const notificationService = require("./notification.service");
-const { CLASS_STATUS } = require("../models/class.model");
-const { NOTIFICATION_TYPES } = require("../models/notification.model");
+const { CLASS_STATUS } = require("../constants/class");
+const { NOTIFICATION_TYPES } = require("../constants/notification");
 const {
   CLASS_APPLICATION_STATUS,
   CLASS_APPLICATION_ORIGIN,
-} = require("../models/class.application.model");
+} = require("../constants/classApplication");
 const { TUTOR_STATUS } = require("../constants/tutor");
 const { buildPagination } = require("../utils/pagination");
 const { generateUniqueCode } = require("../utils/code");
