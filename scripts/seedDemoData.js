@@ -25,6 +25,26 @@ const OCCUPATION_STATUS = require("../src/constants/occupationStatus");
 
 const DEFAULT_PASSWORD = "Password123";
 
+// Ảnh giấy tờ minh chứng (placeholder hiển thị được) — cccdFront/Back nay BẮT BUỘC
+// trong tutor.model; thẻ SV / bằng cấp theo đúng quy tắc đăng ký hồ sơ.
+const docImage = (label) =>
+  `https://placehold.co/800x500/e2e8f0/1e3a5f?text=${encodeURIComponent(label)}`;
+
+const buildTutorDocs = (occupationStatus) => {
+  const isStudent = occupationStatus === OCCUPATION_STATUS.STUDENT;
+  return {
+    cccdFrontImage: docImage("CCCD mặt trước"),
+    cccdBackImage: docImage("CCCD mặt sau"),
+    studentCardFrontImage: isStudent ? docImage("Thẻ SV mặt trước") : null,
+    studentCardBackImage: isStudent ? docImage("Thẻ SV mặt sau") : null,
+    certificateImages: isStudent ? [] : [docImage("Bằng cấp")],
+  };
+};
+
+// Khung giờ định dạng cũ {day, startTime, endTime} → {day, hour} mà tutor.model yêu cầu.
+const toHourSlots = (slots = []) =>
+  slots.map((s) => ({ day: s.day, hour: Number(String(s.startTime).split(":")[0]) }));
+
 const USER_SEEDS = [
   {
     fullName: "Admin Demo",
@@ -455,9 +475,10 @@ const seedPendingTutors = async (hashedPassword) => {
           schoolName: seed.schoolName,
           graduationYear: seed.graduationYear,
           bio: seed.bio,
+          ...buildTutorDocs(seed.occupationStatus),
           status: TUTOR_STATUS.PENDING,
           rejectionReason: null,
-          availability: seed.availability,
+          availability: toHourSlots(seed.availability),
         },
       },
       { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }

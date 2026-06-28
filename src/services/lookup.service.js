@@ -1,13 +1,13 @@
 const lookupRepository = require("../repositories/lookup.repository");
-const AppError = require("../utils/AppError");
-const HTTP_STATUS = require("../constants/status");
 
 const lookupService = {
   // Lấy danh sách values theo type (public)
   async getByType(type) {
     const values = await lookupRepository.getValuesByType(type, true);
     if (values.length === 0) {
-      throw new AppError(`Không tìm thấy dữ liệu lookup cho: ${type}`, HTTP_STATUS.NOT_FOUND);
+      // Thiếu dữ liệu lookup là lỗi cấu hình/seed phía hệ thống (không phải người dùng thao tác sai)
+      // → ném lỗi thường để error middleware ghi log ở terminal BE và KHÔNG hiển thị ra FE.
+      throw new Error(`Không tìm thấy dữ liệu lookup cho: ${type}`);
     }
     return values.map((v) => ({
       value: v.value,
@@ -20,7 +20,8 @@ const lookupService = {
   async getDistrictsByProvince(provinceValue) {
     const districts = await lookupRepository.getDistrictsByProvince(provinceValue, true);
     if (districts.length === 0) {
-      throw new AppError(`Không tìm thấy quận/huyện cho: ${provinceValue}`, HTTP_STATUS.NOT_FOUND);
+      // Thiếu dữ liệu quận/huyện là lỗi cấu hình/seed phía hệ thống → log ở terminal BE, không đẩy ra FE.
+      throw new Error(`Không tìm thấy quận/huyện cho: ${provinceValue}`);
     }
     return districts.map((d) => ({
       value: d.value,

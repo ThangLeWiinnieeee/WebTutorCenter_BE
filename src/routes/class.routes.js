@@ -5,9 +5,11 @@ const { classValidation } = require("../validations");
 const {
   quoteClassSchema,
   createClassSchema,
+  createInviteSchema,
   updateClassSchema,
   listClassQuerySchema,
   cancelApplicationSchema,
+  declineInvitationSchema,
   validateBody,
   validateQuery,
 } = classValidation;
@@ -18,6 +20,27 @@ const router = express.Router();
 
 router.post("/quote", authMiddleware, validateBody(quoteClassSchema), classController.quoteClass);
 router.post("/", authMiddleware, validateBody(createClassSchema), classController.createClass);
+// Mời gia sư trực tiếp + gia sư phản hồi lời mời (đặt trước "/:id" để không bị nuốt route)
+router.post("/invite", authMiddleware, validateBody(createInviteSchema), classController.createInvite);
+router.get(
+  "/invitations",
+  authMiddleware,
+  roleMiddleware("tutor"),
+  classApplicationController.getMyInvitations,
+);
+router.post(
+  "/invitations/:applicationId/accept",
+  authMiddleware,
+  roleMiddleware("tutor"),
+  classApplicationController.acceptInvitation,
+);
+router.post(
+  "/invitations/:applicationId/decline",
+  authMiddleware,
+  roleMiddleware("tutor"),
+  validateBody(declineInvitationSchema),
+  classApplicationController.declineInvitation,
+);
 router.get("/subjects", classController.getSubjects);
 router.get("/pricing-config", classController.getPricingConfig);
 router.get("/", authMiddleware.optional, validateQuery(listClassQuerySchema), classController.getClasses);

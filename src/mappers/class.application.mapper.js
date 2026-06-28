@@ -11,6 +11,7 @@ class ClassApplicationMapper {
     return {
       id: application._id,
       status: application.status,
+      origin: application.origin || "apply",
       rejectionReason: application.rejectionReason ?? null,
       cancellationReason: application.cancellationReason ?? null,
       createdAt: application.createdAt,
@@ -186,6 +187,80 @@ class ClassApplicationMapper {
   static toMineDTOs(applications) {
     if (!Array.isArray(applications)) return [];
     return applications.map((a) => this.toMineDTO(a));
+  }
+
+  /**
+   * DTO lời mời dạy lớp cho gia sư xem & ra quyết định (đồng ý / từ chối).
+   * Trả đủ thông tin để gia sư quyết định (mô tả, khung giờ, khu vực, học phí) nhưng
+   * KHÔNG lộ SĐT liên hệ và địa chỉ chi tiết — chỉ hiện sau khi admin duyệt.
+   */
+  static toInvitationDTO(application) {
+    if (!application) return null;
+    const classItem = application.classId || {};
+
+    return {
+      id: application._id,
+      status: application.status,
+      rejectionReason: application.rejectionReason ?? null,
+      createdAt: application.createdAt,
+      updatedAt: application.updatedAt,
+      classItem: {
+        id: classItem._id,
+        classCode: classItem.classCode,
+        subject: classItem.subject,
+        summary: classItem.summary,
+        description: classItem.description,
+        feePerSession: classItem.feePerSession,
+        feePerMonth: classItem.feePerMonth,
+        finalFeePerMonth: classItem.finalFeePerMonth ?? classItem.feePerMonth,
+        sessionsPerWeek: classItem.sessionsPerWeek,
+        minutesPerSession: classItem.minutesPerSession,
+        studentCount: classItem.studentCount,
+        studentGender: classItem.studentGender,
+        startDate: classItem.startDate,
+        availabilitySlots: classItem.availabilitySlots ?? [],
+        tutorGenderPref: classItem.tutorGenderPref,
+        tutorLevelPref: classItem.tutorLevelPref,
+        provinceName: classItem.provinceName,
+        districtName: classItem.districtName,
+        // Khu vực chung chung; KHÔNG trả contactPhone / locationLabel chi tiết
+        status: classItem.status || "open",
+        createdAt: classItem.createdAt,
+      },
+    };
+  }
+
+  static toInvitationDTOs(applications) {
+    if (!Array.isArray(applications)) return [];
+    return applications.map((a) => this.toInvitationDTO(a));
+  }
+
+  /**
+   * DTO gia sư được mời (gắn vào "Bài đăng của tôi" để người đăng theo dõi kết quả mời).
+   * Gồm trạng thái lời mời + lý do từ chối (nếu có). Không kèm SĐT — khi đã duyệt thì
+   * người đăng xem qua matchedTutor (đã có SĐT).
+   */
+  static toInvitedTutorDTO(application) {
+    if (!application) return null;
+    const tutor = application.tutorId || {};
+    const tutorUser = tutor.userId || {};
+
+    return {
+      applicationId: application._id,
+      status: application.status,
+      declineReason: application.rejectionReason ?? null,
+      tutor: {
+        id: tutor._id,
+        fullName: tutorUser.fullName ?? null,
+        avatar: tutorUser.avatar ?? null,
+        gender: tutorUser.gender ?? null,
+        subjects: tutor.subjects ?? [],
+        occupationStatus: tutor.occupationStatus ?? null,
+        schoolName: tutor.schoolName ?? null,
+        graduationYear: tutor.graduationYear ?? null,
+        totalClassesAccepted: tutor.totalClassesAccepted ?? 0,
+      },
+    };
   }
 }
 

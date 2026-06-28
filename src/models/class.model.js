@@ -43,6 +43,14 @@ const classSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // Lớp được tạo qua luồng "mời gia sư trực tiếp" — chỉ gửi riêng cho gia sư này,
+    // ẩn khỏi danh sách công khai/feed. null = bài đăng thường (ai cũng có thể ứng tuyển).
+    requestedTutorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tutor",
+      default: null,
+      index: true,
+    },
     contactPhone: {
       type: String,
       required: true,

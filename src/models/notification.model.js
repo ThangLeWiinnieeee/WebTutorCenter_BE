@@ -25,6 +25,13 @@ const NOTIFICATION_TYPES = {
   CLASS_COMPLETED_REWARD: "CLASS_COMPLETED_REWARD",
   // Gia sư nhận được đánh giá mới từ người đăng (sau khi lớp hoàn thành)
   REVIEW_RECEIVED: "REVIEW_RECEIVED",
+  // Luồng mời gia sư trực tiếp
+  // Gửi cho gia sư khi người đăng mời họ dạy một lớp
+  CLASS_INVITE_RECEIVED: "CLASS_INVITE_RECEIVED",
+  // Gửi cho người đăng khi gia sư đồng ý lời mời (chờ admin duyệt)
+  CLASS_INVITE_ACCEPTED: "CLASS_INVITE_ACCEPTED",
+  // Gửi cho người đăng khi gia sư từ chối lời mời (kèm lý do)
+  CLASS_INVITE_DECLINED: "CLASS_INVITE_DECLINED",
 };
 
 const notificationSchema = new mongoose.Schema(

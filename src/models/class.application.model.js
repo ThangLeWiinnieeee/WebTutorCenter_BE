@@ -13,6 +13,18 @@ const CLASS_APPLICATION_STATUS = {
   NOT_SELECTED: "not_selected",
   CANCEL_REQUESTED: "cancel_requested",
   CANCELLED: "cancelled",
+  // Luồng mời trực tiếp: người đăng mời gia sư, đang chờ gia sư phản hồi
+  INVITED: "invited",
+  // Luồng mời trực tiếp: gia sư từ chối lời mời (kèm rejectionReason)
+  INVITE_DECLINED: "invite_declined",
+};
+
+// Nguồn gốc đơn nhận lớp:
+// - apply: gia sư chủ động ứng tuyển bài đăng công khai
+// - invite: người đăng mời gia sư trực tiếp
+const CLASS_APPLICATION_ORIGIN = {
+  APPLY: "apply",
+  INVITE: "invite",
 };
 
 const classApplicationSchema = new mongoose.Schema(
@@ -33,6 +45,12 @@ const classApplicationSchema = new mongoose.Schema(
       type: String,
       enum: Object.values(CLASS_APPLICATION_STATUS),
       default: CLASS_APPLICATION_STATUS.PENDING,
+      index: true,
+    },
+    origin: {
+      type: String,
+      enum: Object.values(CLASS_APPLICATION_ORIGIN),
+      default: CLASS_APPLICATION_ORIGIN.APPLY,
       index: true,
     },
     rejectionReason: {
@@ -56,4 +74,4 @@ classApplicationSchema.index({ createdAt: -1 });
 
 const ClassApplication = mongoose.model("ClassApplication", classApplicationSchema);
 
-module.exports = { ClassApplication, CLASS_APPLICATION_STATUS };
+module.exports = { ClassApplication, CLASS_APPLICATION_STATUS, CLASS_APPLICATION_ORIGIN };

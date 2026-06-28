@@ -21,6 +21,21 @@ const hasCompleteDocuments = (tutor) => {
   return Array.isArray(tutor.certificateImages) && tutor.certificateImages.length >= 1;
 };
 
+// Tập _id (dạng string) của top 10 gia sư uy tín hiện tại (theo điểm Bayesian).
+const getTrustedTutorIdSet = async () => {
+  const ids = await tutorRepository.findTrustedTutorIds(10);
+  return new Set(ids.map((id) => String(id)));
+};
+
+// Gắn cờ isTrusted cho 1 DTO hoặc danh sách DTO dựa trên tập gia sư uy tín.
+const markTrusted = (dtos, trustedSet) => {
+  const list = Array.isArray(dtos) ? dtos : [dtos];
+  for (const dto of list) {
+    if (dto) dto.isTrusted = trustedSet.has(String(dto.id));
+  }
+  return dtos;
+};
+
 const registerTutor = async (userId, tutorData) => {
   const user = await userRepository.findById(userId);
   if (!user) {
@@ -89,13 +104,15 @@ const getTutorProfile = async (userId) => {
   const user = await userRepository.findById(userId);
 
   // Chủ hồ sơ được xem lại ảnh giấy tờ của chính mình
-  return await TutorMapper.toDTO(tutor, user, null, { includeDocuments: true });
+  const dto = await TutorMapper.toDTO(tutor, user, null, { includeDocuments: true });
+  return markTrusted(dto, await getTrustedTutorIdSet());
 };
 
 // Lấy danh sách tất cả gia sư đã approved (có phân trang, sắp xếp theo totalClassesAccepted)
 const getActiveTutors = async (page = 1, limit = 20) => {
   const result = await tutorRepository.findAllApproved(page, limit);
   const dtoList = await TutorMapper.toDTOList(result.tutors);
+  markTrusted(dtoList, await getTrustedTutorIdSet());
   return {
     tutors: dtoList,
     total: result.total,
@@ -107,25 +124,29 @@ const getActiveTutors = async (page = 1, limit = 20) => {
 // Lấy top 10 gia sư nổi bật (sắp xếp theo tổng số lần nhận lớp)
 const getTopTutors = async (limit = 10) => {
   const tutors = await tutorRepository.findTopTutors(limit);
-  return await TutorMapper.toDTOList(tutors);
+  const dtoList = await TutorMapper.toDTOList(tutors);
+  return markTrusted(dtoList, await getTrustedTutorIdSet());
 };
 
 // Lấy top 10 gia sư tháng hiện tại (sắp xếp theo classesAcceptedThisMonth)
 const getTopTutorsThisMonth = async (limit = 10) => {
   const tutors = await tutorRepository.findTopTutorsThisMonth(limit);
-  return await TutorMapper.toDTOList(tutors);
+  const dtoList = await TutorMapper.toDTOList(tutors);
+  return markTrusted(dtoList, await getTrustedTutorIdSet());
 };
 
 // Lấy gia sư mới được approved (trong N ngày gần đây)
 const getNewTutors = async (days = 7, limit = 10) => {
   const tutors = await tutorRepository.findNewTutors(days, limit);
-  return await TutorMapper.toDTOList(tutors);
+  const dtoList = await TutorMapper.toDTOList(tutors);
+  return markTrusted(dtoList, await getTrustedTutorIdSet());
 };
 
 // Tìm kiếm & lọc gia sư
 const searchActiveTutors = async (filters = {}, page = 1, limit = 20) => {
   const result = await tutorRepository.searchTutors(filters, page, limit);
   const dtoList = await TutorMapper.toDTOList(result.tutors);
+  markTrusted(dtoList, await getTrustedTutorIdSet());
   return {
     tutors: dtoList,
     total: result.total,
@@ -144,6 +165,7 @@ const getTutorById = async (tutorId) => {
     throw new AppError(MESSAGE.TUTOR_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
   const dto = await TutorMapper.toDTO(tutor, null);
+  markTrusted(dto, await getTrustedTutorIdSet());
   // Ẩn thông tin liên hệ ở trang công khai /tutors/:id — SĐT/email chỉ được chia sẻ
   // giữa người đăng và gia sư sau khi gia sư nhận lớp (tránh bị gọi làm phiền).
   delete dto.phone;

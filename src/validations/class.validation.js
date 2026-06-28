@@ -51,6 +51,16 @@ const baseClassSchema = Joi.object({
 
 const quoteClassSchema = baseClassSchema;
 const createClassSchema = baseClassSchema;
+// Mời gia sư trực tiếp: như tạo lớp + bắt buộc id gia sư được mời (24 ký tự hex ObjectId)
+const createInviteSchema = baseClassSchema.keys({
+  requestedTutorId: Joi.string()
+    .pattern(/^[0-9a-fA-F]{24}$/)
+    .required()
+    .messages({
+      "string.pattern.base": "Gia sư được mời không hợp lệ",
+      "any.required": "Thiếu thông tin gia sư được mời",
+    }),
+});
 // Sửa bài đăng: dùng lại toàn bộ field nhập như khi tạo (mã ưu đãi giữ nguyên, không sửa qua đây)
 const updateClassSchema = baseClassSchema;
 
@@ -72,12 +82,24 @@ const cancelApplicationSchema = Joi.object({
   }),
 });
 
+// Gia sư từ chối lời mời — bắt buộc nêu lý do
+const declineInvitationSchema = Joi.object({
+  reason: Joi.string().trim().min(5).max(500).required().messages({
+    "string.empty": "Vui lòng nhập lý do từ chối",
+    "string.min": "Lý do từ chối phải có ít nhất 5 ký tự",
+    "string.max": "Lý do từ chối không được vượt quá 500 ký tự",
+    "any.required": "Vui lòng nhập lý do từ chối",
+  }),
+});
+
 module.exports = {
   quoteClassSchema,
   createClassSchema,
+  createInviteSchema,
   updateClassSchema,
   listClassQuerySchema,
   cancelApplicationSchema,
+  declineInvitationSchema,
   validateBody,
   validateQuery,
 };

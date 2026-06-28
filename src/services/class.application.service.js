@@ -4,7 +4,7 @@ const MESSAGE = require("../constants/message");
 const { TUTOR_STATUS } = require("../constants/tutor");
 const ROLES = require("../constants/role");
 const { NOTIFICATION_TYPES } = require("../models/notification.model");
-const { CLASS_APPLICATION_STATUS } = require("../models/class.application.model");
+const { CLASS_APPLICATION_STATUS, CLASS_APPLICATION_ORIGIN } = require("../models/class.application.model");
 const { CLASS_STATUS } = require("../models/class.model");
 const classRepository = require("../repositories/class.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
@@ -239,10 +239,115 @@ const cancelApplication = async (userId, applicationId, reason) => {
   throw new AppError(MESSAGE.CLASS_APPLICATION_CANCEL_INVALID_STATUS, HTTP_STATUS.BAD_REQUEST);
 };
 
+// ──────────────────────────── Luồng mời gia sư trực tiếp (gia sư phản hồi) ────────────────────────────
+
+// Gia sư xem danh sách lời mời dạy lớp gửi tới mình (mặc định các lời mời đang chờ phản hồi).
+const getMyInvitations = async (userId, query = {}) => {
+  const tutor = await tutorRepository.findByUserId(userId);
+  if (!tutor) throw new AppError(MESSAGE.TUTOR_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const status = query.status && query.status !== "all" ? query.status : CLASS_APPLICATION_STATUS.INVITED;
+
+  const { docs, totalItems } = await classApplicationRepository.findInvitationsByTutor(tutor._id, {
+    status,
+    page,
+    limit,
+  });
+
+  return {
+    invitations: ClassApplicationMapper.toInvitationDTOs(docs),
+    pagination: buildPagination({ page, limit, totalItems }),
+  };
+};
+
+// Tìm lời mời (origin=invite, đang INVITED) thuộc về gia sư đang đăng nhập.
+const findOwnPendingInvitation = async (userId, applicationId) => {
+  const application = await classApplicationRepository.findById(applicationId);
+  if (!application || application.origin !== CLASS_APPLICATION_ORIGIN.INVITE) {
+    throw new AppError(MESSAGE.CLASS_INVITE_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  }
+
+  const tutorUserId = application.tutorId?.userId?._id ?? application.tutorId?.userId;
+  if (String(tutorUserId) !== String(userId)) {
+    throw new AppError(MESSAGE.CLASS_INVITE_NOT_FOUND, HTTP_STATUS.FORBIDDEN);
+  }
+
+  if (application.status !== CLASS_APPLICATION_STATUS.INVITED) {
+    throw new AppError(MESSAGE.CLASS_INVITE_NOT_PENDING, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  return application;
+};
+
+// Gia sư đồng ý lời mời → đơn chuyển SELECTED (vào hàng chờ admin duyệt như luồng chọn gia sư).
+const acceptInvitation = async (userId, applicationId) => {
+  const application = await findOwnPendingInvitation(userId, applicationId);
+  const classItem = application.classId;
+
+  const updated = await classApplicationRepository.update(applicationId, {
+    status: CLASS_APPLICATION_STATUS.SELECTED,
+  });
+
+  const tutorUser = await userRepository.findById(userId);
+  const tutorName = tutorUser?.fullName || "Gia sư";
+  const posterUserId = classItem.createdBy?._id ?? classItem.createdBy;
+
+  await Promise.all([
+    // Báo cho chính gia sư: đã nhận lớp, đang chờ admin duyệt
+    notificationService.createNotification({
+      userId,
+      type: NOTIFICATION_TYPES.CLASS_APPLICATION_SELECTED,
+      message: `Bạn đã đồng ý nhận lớp ${classItem.classCode} (Môn: ${classItem.subject}). Vui lòng chờ admin xét duyệt.`,
+    }),
+    posterUserId &&
+      notificationService.createNotification({
+        userId: posterUserId,
+        type: NOTIFICATION_TYPES.CLASS_INVITE_ACCEPTED,
+        message: `Gia sư ${tutorName} đã đồng ý nhận lớp ${classItem.classCode} (Môn: ${classItem.subject}) của bạn. Vui lòng chờ admin xét duyệt.`,
+      }),
+    notifyAdmins(
+      NOTIFICATION_TYPES.CLASS_APPLICATION_SELECTED,
+      `Gia sư ${tutorName} đã đồng ý lời mời lớp ${classItem.classCode} - Môn: ${classItem.subject}. Vui lòng duyệt lớp.`,
+    ),
+  ]);
+
+  return ClassApplicationMapper.toDTO(updated);
+};
+
+// Gia sư từ chối lời mời (kèm lý do) → đơn INVITE_DECLINED, báo người đăng (KHÔNG qua admin).
+const declineInvitation = async (userId, applicationId, reason) => {
+  const application = await findOwnPendingInvitation(userId, applicationId);
+  const classItem = application.classId;
+
+  const updated = await classApplicationRepository.update(applicationId, {
+    status: CLASS_APPLICATION_STATUS.INVITE_DECLINED,
+    rejectionReason: reason,
+  });
+
+  const tutorUser = await userRepository.findById(userId);
+  const tutorName = tutorUser?.fullName || "Gia sư";
+  const posterUserId = classItem.createdBy?._id ?? classItem.createdBy;
+
+  if (posterUserId) {
+    await notificationService.createNotification({
+      userId: posterUserId,
+      type: NOTIFICATION_TYPES.CLASS_INVITE_DECLINED,
+      message: `Gia sư ${tutorName} đã từ chối dạy lớp ${classItem.classCode} (Môn: ${classItem.subject}) của bạn. Lý do: ${reason}`,
+    });
+  }
+
+  return ClassApplicationMapper.toDTO(updated);
+};
+
 module.exports = {
   applyForClass,
   getApplicantsForPoster,
   selectApplicant,
   getMyApplications,
   cancelApplication,
+  getMyInvitations,
+  acceptInvitation,
+  declineInvitation,
 };

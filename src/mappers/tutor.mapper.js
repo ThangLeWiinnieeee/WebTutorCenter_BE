@@ -47,6 +47,8 @@ class TutorMapper {
       classesAcceptedThisMonth: tutor.classesAcceptedThisMonth ?? 0,
       averageRating: tutor.averageRating ?? 0,
       reviewCount: tutor.reviewCount ?? 0,
+      // Huy hiệu "Gia sư uy tín" — service set true cho top theo điểm Bayesian.
+      isTrusted: false,
       status: tutor.status,
       rejectionReason: tutor.rejectionReason,
       ...documents,

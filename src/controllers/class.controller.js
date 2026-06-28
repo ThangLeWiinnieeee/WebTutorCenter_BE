@@ -30,6 +30,20 @@ const createClass = async (req, res, next) => {
   }
 };
 
+// Người đăng mời một gia sư cụ thể dạy lớp (luồng "mời gia sư trực tiếp")
+const createInvite = async (req, res, next) => {
+  try {
+    const created = await classService.createInvitedClass(req.body, req.user.id);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.CREATED,
+      message: MESSAGE.CLASS_INVITE_SUCCESS,
+      data: { classItem: created },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getClasses = async (req, res, next) => {
   try {
     const result = await classService.getClasses(req.query, req.user);
@@ -157,6 +171,7 @@ const getPricingConfig = async (req, res, next) => {
 module.exports = {
   quoteClass,
   createClass,
+  createInvite,
   getClasses,
   getClassFeed,
   getMyPosts,
