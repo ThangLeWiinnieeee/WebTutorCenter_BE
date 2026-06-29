@@ -9,7 +9,17 @@ class ReviewMapper {
       comment: review.comment,
       reviewerName: reviewer.fullName || "Người dùng",
       reviewerAvatar: reviewer.avatar || null,
+      reply: ReviewMapper.toReplyDTO(review.reply),
       createdAt: review.createdAt,
+    };
+  }
+
+  // Phản hồi của gia sư cho đánh giá (null nếu chưa phản hồi)
+  static toReplyDTO(reply) {
+    if (!reply) return null;
+    return {
+      comment: reply.comment,
+      repliedAt: reply.repliedAt || null,
     };
   }
 
@@ -31,6 +41,7 @@ class ReviewMapper {
       reviewerAvatar: reviewer.avatar || null,
       classCode: classItem.classCode || null,
       subject: classItem.subject || null,
+      reply: ReviewMapper.toReplyDTO(review.reply),
       createdAt: review.createdAt,
     };
   }

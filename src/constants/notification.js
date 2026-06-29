@@ -23,6 +23,8 @@ const NOTIFICATION_TYPES = {
   CLASS_COMPLETED_REWARD: "CLASS_COMPLETED_REWARD",
   // Gia sư nhận được đánh giá mới từ người đăng (sau khi lớp hoàn thành)
   REVIEW_RECEIVED: "REVIEW_RECEIVED",
+  // Gửi cho người đăng (người viết đánh giá) khi gia sư phản hồi đánh giá của họ
+  REVIEW_REPLIED: "REVIEW_REPLIED",
   // Luồng mời gia sư trực tiếp
   // Gửi cho gia sư khi người đăng mời họ dạy một lớp
   CLASS_INVITE_RECEIVED: "CLASS_INVITE_RECEIVED",

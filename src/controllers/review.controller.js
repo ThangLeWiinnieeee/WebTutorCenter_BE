@@ -30,6 +30,19 @@ const getTutorReviews = async (req, res, next) => {
   }
 };
 
+// Gia sư phản hồi một đánh giá của chính mình (1 lần duy nhất)
+const replyToReview = async (req, res, next) => {
+  try {
+    const data = await reviewService.replyToReview(req.user.id, req.params.id, req.body.comment);
+    return successResponse(res, {
+      message: MESSAGE.REVIEW_REPLY_SUCCESS,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ──────────────────────────── Admin ────────────────────────────
 
 const getAdminReviewTutors = async (req, res, next) => {
@@ -71,6 +84,7 @@ const softDeleteReview = async (req, res, next) => {
 module.exports = {
   createReview,
   getTutorReviews,
+  replyToReview,
   getAdminReviewTutors,
   getAdminTutorReviews,
   softDeleteReview,

@@ -67,6 +67,15 @@ const findReviewedClassIds = async (reviewerId, classIds = []) => {
   });
 };
 
+// Gia sư phản hồi đánh giá (chỉ khi chưa có phản hồi & chưa xóa mềm) — guard `reply: null`
+// đảm bảo nguyên tử để không phản hồi đúp khi có race condition. Trả null nếu không cập nhật được.
+const setReply = async (id, reply) =>
+  Review.findOneAndUpdate(
+    { _id: id, deletedAt: null, reply: null },
+    { reply },
+    { new: true }
+  );
+
 // Xóa mềm: đưa đánh giá vào thùng rác
 const softDelete = async (id, adminUserId) =>
   Review.findOneAndUpdate(
@@ -119,6 +128,7 @@ module.exports = {
   findActiveByTutorIdForAdmin,
   aggregateActiveByTutor,
   findReviewedClassIds,
+  setReply,
   softDelete,
   restore,
   findDeleted,
