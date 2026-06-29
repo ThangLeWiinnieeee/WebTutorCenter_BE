@@ -5,13 +5,13 @@ const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
 const { ClassMapper } = require("../mappers");
 const { buildPagination } = require("../utils/pagination");
-
-const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const { diacriticInsensitiveRegex } = require("../utils/search");
 
 const buildClassFilters = ({ keyword, subject }) => {
   const filters = {};
   if (keyword) {
-    const pattern = new RegExp(escapeRegExp(keyword.trim()), "i");
+    // Tìm không dấu + không phân biệt hoa/thường (mã lớp/tiêu đề/điện thoại)
+    const pattern = diacriticInsensitiveRegex(keyword);
     filters.$or = [{ classCode: pattern }, { summary: pattern }, { contactPhone: pattern }];
   }
   if (subject) filters.subject = subject;

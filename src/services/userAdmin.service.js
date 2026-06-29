@@ -4,13 +4,13 @@ const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
 const { UserMapper } = require("../mappers");
 const { buildPagination } = require("../utils/pagination");
-
-const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const { diacriticInsensitiveRegex } = require("../utils/search");
 
 const buildUserFilters = ({ keyword, role, isActive, isVerified }) => {
   const filters = {};
   if (keyword) {
-    const pattern = new RegExp(escapeRegExp(keyword.trim()), "i");
+    // Tìm không dấu + không phân biệt hoa/thường (tên/email/điện thoại)
+    const pattern = diacriticInsensitiveRegex(keyword);
     filters.$or = [{ fullName: pattern }, { email: pattern }, { phone: pattern }];
   }
   if (role) filters.role = role;

@@ -102,6 +102,50 @@ const getTutorReviews = async (tutorId, query = {}) => {
   };
 };
 
+// Gia sư phản hồi một đánh giá của chính mình — chỉ được phản hồi MỘT lần.
+const replyToReview = async (tutorUserId, reviewId, comment) => {
+  assertValidObjectId(reviewId, MESSAGE.REVIEW_NOT_FOUND);
+
+  // Người gọi phải có hồ sơ gia sư
+  const tutor = await tutorRepository.findByUserId(tutorUserId);
+  if (!tutor) throw new AppError(MESSAGE.REVIEW_REPLY_NOT_OWNER, HTTP_STATUS.FORBIDDEN);
+
+  const review = await reviewRepository.findById(reviewId);
+  if (!review || review.deletedAt) {
+    throw new AppError(MESSAGE.REVIEW_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  }
+
+  // Chỉ gia sư được đánh giá mới được phản hồi
+  if (String(review.tutorId) !== String(tutor._id)) {
+    throw new AppError(MESSAGE.REVIEW_REPLY_NOT_OWNER, HTTP_STATUS.FORBIDDEN);
+  }
+
+  // Mỗi đánh giá chỉ được phản hồi một lần
+  if (review.reply) {
+    throw new AppError(MESSAGE.REVIEW_REPLY_ALREADY_EXISTS, HTTP_STATUS.CONFLICT);
+  }
+
+  const reply = { comment: comment.trim(), repliedAt: new Date() };
+  // Cập nhật nguyên tử (guard reply:null) để chặn phản hồi đúp khi gọi song song
+  const updated = await reviewRepository.setReply(reviewId, reply);
+  if (!updated) {
+    throw new AppError(MESSAGE.REVIEW_REPLY_ALREADY_EXISTS, HTTP_STATUS.CONFLICT);
+  }
+
+  // Thông báo cho người đăng (người viết đánh giá) rằng gia sư đã phản hồi
+  if (review.reviewerId) {
+    await notificationService.createNotification({
+      userId: review.reviewerId,
+      type: NOTIFICATION_TYPES.REVIEW_REPLIED,
+      message: "Gia sư đã phản hồi đánh giá của bạn. Xem phản hồi trong trang chi tiết gia sư.",
+    });
+  }
+
+  await updated.populate({ path: "reviewerId", select: "fullName avatar" });
+
+  return { review: ReviewMapper.toDTO(updated) };
+};
+
 // ──────────────────────────── Admin: quản lý đánh giá theo gia sư ────────────────────────────
 
 // Danh sách gia sư (kèm số lượt + điểm đánh giá) để admin chọn xem đánh giá
@@ -164,6 +208,7 @@ module.exports = {
   recomputeTutorRating,
   createReview,
   getTutorReviews,
+  replyToReview,
   getTutorsForAdmin,
   getTutorReviewsForAdmin,
   softDeleteReview,

@@ -8,6 +8,7 @@ const HTTP_STATUS = require("../constants/status");
 const ROLES = require("../constants/role");
 const { ConversationMapper, MessageMapper } = require("../mappers");
 const { buildPagination } = require("../utils/pagination");
+const { diacriticInsensitiveRegex } = require("../utils/search");
 const { emitToUser, emitToAdmins } = require("../configs/socket");
 
 // Tên sự kiện realtime (đồng bộ với FE)
@@ -31,8 +32,6 @@ const normalizeMessageInput = ({ content, imageUrl } = {}) => {
 
 // Nội dung xem trước hiển thị ở danh sách hội thoại.
 const buildPreview = (text, image) => text || (image ? "[Hình ảnh]" : "");
-
-const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // ──────────────────────────── Người dùng (gia sư + học viên) ────────────────────────────
 // Ghi chú: vai trò "tutor" trong chat đại diện cho "phía người dùng" (không phải admin),
@@ -113,7 +112,7 @@ const getTutorUnreadCount = async (tutorUserId) => {
 // rồi lọc conversation. Bao gồm cả gia sư lẫn học viên.
 const buildAdminConversationFilter = async (keyword) => {
   if (!keyword || !keyword.trim()) return {};
-  const pattern = new RegExp(escapeRegExp(keyword.trim()), "i");
+  const pattern = diacriticInsensitiveRegex(keyword);
   const users = await User.find({
     role: { $ne: ROLES.ADMIN },
     deletedAt: null,

@@ -1,5 +1,24 @@
 const mongoose = require("mongoose");
 
+// Phản hồi của gia sư cho một đánh giá. Mỗi đánh giá chỉ được gia sư phản hồi MỘT lần
+// (để gia sư có cơ hội giải thích, vd khi bị đánh giá oan). Không có _id riêng.
+const reviewReplySchema = new mongoose.Schema(
+  {
+    comment: {
+      type: String,
+      required: [true, "Nội dung phản hồi là bắt buộc"],
+      trim: true,
+      minlength: [2, "Phản hồi phải có ít nhất 2 ký tự"],
+      maxlength: [1000, "Phản hồi không được vượt quá 1000 ký tự"],
+    },
+    repliedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
+
 // Đánh giá gia sư của người đăng bài sau khi lớp đã hoàn thành (cả hai phía xác nhận).
 // Mỗi lớp đã hoàn thành chỉ được người đăng đánh giá MỘT lần (kiểm tra ở service layer).
 const reviewSchema = new mongoose.Schema(
@@ -37,6 +56,11 @@ const reviewSchema = new mongoose.Schema(
       trim: true,
       minlength: [5, "Nhận xét phải có ít nhất 5 ký tự"],
       maxlength: [1000, "Nhận xét không được vượt quá 1000 ký tự"],
+    },
+    // Phản hồi của gia sư cho đánh giá này (tối đa 1 lần). `null` = chưa phản hồi.
+    reply: {
+      type: reviewReplySchema,
+      default: null,
     },
     // Xóa mềm: đưa đánh giá vào thùng rác (ẩn khỏi mọi thống kê/hiển thị) thay vì xóa hẳn
     deletedAt: {

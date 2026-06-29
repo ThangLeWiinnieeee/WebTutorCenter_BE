@@ -4,7 +4,11 @@ const { TUTOR_STATUS } = require("../constants/tutor");
 
 const POPULATE_USER = "fullName email gender dateOfBirth avatar phone";
 
-const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Tìm kiếm khớp không dấu + không phân biệt hoa/thường (dùng chung toàn hệ thống).
+const {
+  buildDiacriticInsensitivePattern,
+  diacriticInsensitiveRegex,
+} = require("../utils/search");
 
 const findByUserId = async (userId) => {
   return await Tutor.findOne({ userId });
@@ -154,8 +158,8 @@ const searchTutors = async (filters = {}, page = 1, limit = 20) => {
   // Điều kiện ở cấp Tutor
   const tutorMatch = { status: TUTOR_STATUS.APPROVED };
   if (filters.subject) {
-    // Khớp chính xác tên môn (không phân biệt hoa/thường)
-    tutorMatch.subjects = { $regex: `^${escapeRegExp(String(filters.subject).trim())}$`, $options: "i" };
+    // Khớp chính xác tên môn (không dấu + không phân biệt hoa/thường)
+    tutorMatch.subjects = { $regex: `^${buildDiacriticInsensitivePattern(filters.subject)}$`, $options: "i" };
   }
   if (filters.occupationStatus) {
     tutorMatch.occupationStatus = filters.occupationStatus;
@@ -173,8 +177,8 @@ const searchTutors = async (filters = {}, page = 1, limit = 20) => {
     userMatch["userId.gender"] = filters.gender;
   }
   if (filters.name && String(filters.name).trim()) {
-    // Tìm theo tên gia sư (khớp một phần, không phân biệt hoa/thường)
-    userMatch["userId.fullName"] = { $regex: escapeRegExp(String(filters.name).trim()), $options: "i" };
+    // Tìm theo tên gia sư (khớp một phần, không dấu + không phân biệt hoa/thường)
+    userMatch["userId.fullName"] = { $regex: buildDiacriticInsensitivePattern(filters.name), $options: "i" };
   }
   if (filters.yearOfBirth) {
     const year = parseInt(filters.yearOfBirth, 10);
@@ -250,7 +254,7 @@ const findApprovedForReviewAdmin = async ({ page = 1, limit = 10, keyword = "" }
   ];
 
   if (keyword && keyword.trim()) {
-    const pattern = new RegExp(escapeRegExp(keyword.trim()), "i");
+    const pattern = diacriticInsensitiveRegex(keyword);
     pipeline.push({ $match: { "user.fullName": pattern } });
   }
 
