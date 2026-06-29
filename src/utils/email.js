@@ -1,16 +1,49 @@
-const nodemailer = require("nodemailer");
+const { OAuth2Client } = require("google-auth-library");
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
-  },
-});
+// Gửi email qua Gmail API (REST/HTTPS cổng 443) thay vì SMTP — tránh bị hosting (Render) chặn cổng SMTP.
+// OAuth2 dùng lại Google Client ID/Secret + một refresh_token của tài khoản gửi (lấy qua scripts/getGmailRefreshToken.js).
+const oAuth2Client = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+);
+oAuth2Client.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
+
+// Địa chỉ gửi hiển thị; phần email phải là tài khoản Gmail đã cấp quyền (GMAIL_USER).
+const FROM_ADDRESS = process.env.EMAIL_FROM || `WebTutorCenter <${process.env.GMAIL_USER}>`;
+
+// Dựng message RFC 2822 rồi mã hóa base64url theo yêu cầu của Gmail API.
+const _buildRawMessage = ({ from, to, subject, html }) => {
+  const subjectEncoded = `=?UTF-8?B?${Buffer.from(subject, "utf-8").toString("base64")}?=`;
+  const message = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subjectEncoded}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    Buffer.from(html, "utf-8").toString("base64"),
+  ].join("\r\n");
+
+  return Buffer.from(message, "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+};
+
+// oAuth2Client tự dùng refresh_token để lấy access_token mới; lỗi sẽ throw cho service/controller xử lý.
+const _send = async ({ to, subject, html }) => {
+  const raw = _buildRawMessage({ from: FROM_ADDRESS, to, subject, html });
+  await oAuth2Client.request({
+    url: "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    method: "POST",
+    data: { raw },
+  });
+};
 
 const sendOtpEmail = async ({ to, fullName, otp, expiresInMinutes }) => {
-  const mailOptions = {
-    from: `"WebTutorCenter" <${process.env.GMAIL_USER}>`,
+  await _send({
     to,
     subject: "Xác thực email - Mã OTP của bạn",
     html: `
@@ -50,14 +83,11 @@ const sendOtpEmail = async ({ to, fullName, otp, expiresInMinutes }) => {
         </p>
       </div>
     `,
-  };
-
-  await transporter.sendMail(mailOptions);
+  });
 };
 
 const sendForgotPasswordOtpEmail = async ({ to, fullName, otp, expiresInMinutes }) => {
-  const mailOptions = {
-    from: `"WebTutorCenter" <${process.env.GMAIL_USER}>`,
+  await _send({
     to,
     subject: "Khôi phục mật khẩu - Mã OTP của bạn",
     html: `
@@ -98,9 +128,7 @@ const sendForgotPasswordOtpEmail = async ({ to, fullName, otp, expiresInMinutes 
         </p>
       </div>
     `,
-  };
-
-  await transporter.sendMail(mailOptions);
+  });
 };
 
 module.exports = { sendOtpEmail, sendForgotPasswordOtpEmail };

@@ -139,6 +139,10 @@ const MESSAGE = {
   REVIEW_CLASS_NOT_COMPLETED: "Chỉ có thể đánh giá khi lớp đã hoàn thành",
   REVIEW_NOT_POSTER: "Chỉ người đăng bài mới được đánh giá gia sư của lớp này",
   REVIEW_TUTOR_NOT_FOUND: "Lớp này chưa có gia sư nhận nên không thể đánh giá",
+  REVIEW_REPLY_SUCCESS: "Đã gửi phản hồi đánh giá",
+  REVIEW_REPLY_NOT_OWNER: "Bạn chỉ có thể phản hồi đánh giá dành cho chính mình",
+  REVIEW_REPLY_ALREADY_EXISTS:
+    "Bạn đã phản hồi đánh giá này rồi. Mỗi đánh giá chỉ được phản hồi một lần.",
 
   // Class
   QUOTE_SUCCESS: "Tính học phí lớp mới thành công",

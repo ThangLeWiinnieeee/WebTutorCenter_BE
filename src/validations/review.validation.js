@@ -25,6 +25,16 @@ const createReviewSchema = Joi.object({
   }),
 });
 
+// Gia sư phản hồi một đánh giá (1 lần duy nhất)
+const replyReviewSchema = Joi.object({
+  comment: Joi.string().trim().min(2).max(1000).required().messages({
+    "string.empty": "Vui lòng nhập nội dung phản hồi",
+    "string.min": "Phản hồi phải có ít nhất 2 ký tự",
+    "string.max": "Phản hồi không được vượt quá 1000 ký tự",
+    "any.required": "Vui lòng nhập nội dung phản hồi",
+  }),
+});
+
 // Phân trang danh sách đánh giá công khai của gia sư
 const listTutorReviewsQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
@@ -48,6 +58,7 @@ module.exports = {
   validate,
   validateQuery,
   createReviewSchema,
+  replyReviewSchema,
   listTutorReviewsQuerySchema,
   adminListReviewTutorsQuerySchema,
   adminListTutorReviewsQuerySchema,
