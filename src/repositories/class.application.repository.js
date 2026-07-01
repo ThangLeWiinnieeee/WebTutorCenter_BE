@@ -215,27 +215,6 @@ const countCancellationsGrouped = async () => {
   return { cancel_requested: cancelRequested, cancelled };
 };
 
-const findAllPending = async () => {
-  return await ClassApplication.find({ status: CLASS_APPLICATION_STATUS.PENDING })
-    .populate("classId", POPULATE_CLASS)
-    .populate({
-      path: "tutorId",
-      populate: { path: "userId", select: POPULATE_TUTOR_USER },
-    })
-    .sort({ createdAt: -1 });
-};
-
-const findByStatus = async (status) => {
-  const filter = status && status !== "all" ? { status } : {};
-  return await ClassApplication.find(filter)
-    .populate("classId", POPULATE_CLASS)
-    .populate({
-      path: "tutorId",
-      populate: { path: "userId", select: POPULATE_TUTOR_USER },
-    })
-    .sort({ createdAt: -1 });
-};
-
 // Một trang đơn nhận lớp theo trạng thái (admin duyệt nhận lớp), mới nhất trước.
 // origin (optional): "apply" | "invite" để admin chia 2 mục.
 const findByStatusPage = async ({ status, origin, page = 1, limit = 10 }) => {
@@ -303,12 +282,8 @@ const update = async (id, updateData) => {
     });
 };
 
-const countPending = async () => {
-  return await ClassApplication.countDocuments({ status: CLASS_APPLICATION_STATUS.PENDING });
-};
-
 // Đơn đang chờ ADMIN duyệt nhận lớp = đã được người đăng chọn (SELECTED).
-// Khác countPending (gia sư mới ứng tuyển, chưa được chọn) — đó chưa phải việc của admin.
+// Khác với đơn PENDING (gia sư mới ứng tuyển, chưa được chọn) — đó chưa phải việc của admin.
 const countSelected = async () => {
   return await ClassApplication.countDocuments({ status: CLASS_APPLICATION_STATUS.SELECTED });
 };
@@ -392,13 +367,10 @@ module.exports = {
   countByTutorIdGrouped,
   findCancellationsPage,
   countCancellationsGrouped,
-  findAllPending,
-  findByStatus,
   findByStatusPage,
   findInvitationsByTutor,
   findInviteByClassIds,
   update,
-  countPending,
   countSelected,
   countAll,
   countActiveByClassId,

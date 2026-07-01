@@ -24,7 +24,14 @@ const purgeUserData = async (user) => {
   const tutor = await tutorRepository.findByUserId(userId);
   const tutorId = tutor?._id;
 
-  // 1) Xóa ảnh trên Cloudinary: avatar + (nếu là gia sư) CCCD trước/sau, thẻ SV trước/sau, bằng cấp.
+  // 1) Thu thập dữ liệu phụ thuộc trước khi xóa.
+  const classIds = await classRepository.findAllIdsByCreatedBy(userId);
+  const conversation = await conversationRepository.findByTutorUserId(userId);
+
+  // 2) Gom URL ảnh cần xóa trên Cloudinary:
+  //    - avatar + (nếu là gia sư) CCCD trước/sau, thẻ SV trước/sau, bằng cấp
+  //    - ảnh đính kèm trong tin nhắn: cả hội thoại của user (kèm ảnh admin gửi vào) và
+  //      mọi ảnh do chính user gửi (kể cả hội thoại khác, vd khi purge tài khoản admin)
   const imageUrls = [user.avatar];
   if (tutor) {
     imageUrls.push(
@@ -35,11 +42,11 @@ const purgeUserData = async (user) => {
       ...(tutor.certificateImages || [])
     );
   }
+  if (conversation) {
+    imageUrls.push(...(await messageRepository.findImageUrlsByConversationId(conversation._id)));
+  }
+  imageUrls.push(...(await messageRepository.findImageUrlsBySenderId(userId)));
   await deleteImagesFromCloudinary(imageUrls);
-
-  // 2) Thu thập dữ liệu phụ thuộc trước khi xóa.
-  const classIds = await classRepository.findAllIdsByCreatedBy(userId);
-  const conversation = await conversationRepository.findByTutorUserId(userId);
 
   // 3) Xóa song song các collection liên quan (độc lập nhau).
   await Promise.all([
@@ -60,6 +67,8 @@ const purgeUserData = async (user) => {
     ...(conversation ? [messageRepository.deleteByConversationId(conversation._id)] : []),
     messageRepository.deleteBySenderId(userId),
     conversationRepository.deleteByTutorUserId(userId),
+    // Voucher cá nhân trong "kho mã" của user (không đụng mã ưu đãi toàn cục)
+    promoRepository.deleteByOwnerUserId(userId),
     // Thông báo, yêu cầu đổi hồ sơ, dữ liệu tạm theo email
     notificationRepository.deleteByUserId(userId),
     profileChangeRequestRepository.deleteByUserId(userId),

@@ -49,14 +49,9 @@ const buildDiacriticInsensitivePattern = (keyword) => {
 const diacriticInsensitiveRegex = (keyword) =>
   new RegExp(buildDiacriticInsensitivePattern(keyword), "i");
 
-// RegExp khớp chính xác toàn chuỗi, không dấu + không phân biệt hoa/thường.
-const diacriticInsensitiveExactRegex = (keyword) =>
-  new RegExp(`^${buildDiacriticInsensitivePattern(keyword)}$`, "i");
-
 module.exports = {
   escapeRegExp,
   removeDiacritics,
   buildDiacriticInsensitivePattern,
   diacriticInsensitiveRegex,
-  diacriticInsensitiveExactRegex,
 };

@@ -4,10 +4,6 @@ const create = async ({ userId, type, message }) => {
   return Notification.create({ userId, type, message });
 };
 
-const findByUserId = async (userId) => {
-  return Notification.find({ userId }).sort({ createdAt: -1 }).lean();
-};
-
 // Một trang thông báo của người dùng, mới nhất trước.
 const findByUserIdPage = async ({ userId, page = 1, limit = 10 }) => {
   const skip = (Math.max(1, page) - 1) * limit;
@@ -49,7 +45,6 @@ const deleteByUserId = async (userId) => {
 
 module.exports = {
   create,
-  findByUserId,
   findByUserIdPage,
   countByUserId,
   countUnread,

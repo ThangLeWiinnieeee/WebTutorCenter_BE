@@ -14,10 +14,6 @@ const getOtpExpiry = () => {
   return expires;
 };
 
-const isOtpExpired = (expiresAt) => {
-  return !expiresAt || new Date() > new Date(expiresAt);
-};
-
 // createdAt là timestamp của OTP document trong DB
 const isResendTooSoon = (createdAt) => {
   if (!createdAt) return false;
@@ -34,7 +30,6 @@ const getResendWaitSeconds = (createdAt) => {
 module.exports = {
   generateOtp,
   getOtpExpiry,
-  isOtpExpired,
   isResendTooSoon,
   getResendWaitSeconds,
   OTP_EXPIRES_MINUTES,
