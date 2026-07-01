@@ -28,11 +28,6 @@ let cachedPricingConfig = null;
 let pricingConfigCachedAt = 0;
 const PRICING_CONFIG_CACHE_MS = 60_000;
 
-const clearPricingConfigCache = () => {
-  cachedPricingConfig = null;
-  pricingConfigCachedAt = 0;
-};
-
 const loadPricingConfigDoc = async () => {
   const now = Date.now();
   if (cachedPricingConfig && now - pricingConfigCachedAt < PRICING_CONFIG_CACHE_MS) {
@@ -660,5 +655,4 @@ module.exports = {
   confirmClassCompletion,
   getSubjects,
   getPricingConfig,
-  clearPricingConfigCache,
 };

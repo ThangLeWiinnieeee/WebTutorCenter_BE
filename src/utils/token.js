@@ -39,13 +39,30 @@ const verifyResetToken = (token) => {
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// Khi FE (app.tenmien.com) và BE (api.tenmien.com) cùng domain cha, đặt
+// COOKIE_DOMAIN=".tenmien.com" để cookie chia sẻ giữa các subdomain (first-party).
+// Bỏ trống ở localhost để cookie mặc định host-only.
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
+
 const REFRESH_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,
-  // Khi FE (Vercel) và BE (Render) khác domain, cookie phải có SameSite=None + Secure
-  // thì trình duyệt mới gửi kèm trong request cross-site. Dev (localhost) giữ "strict".
+  // Cùng domain cha là same-site → "lax" đủ và an toàn hơn "none".
+  // Vẫn cần Secure vì chạy HTTPS. Dev (localhost) giữ "strict".
   secure: isProduction,
-  sameSite: isProduction ? "none" : "strict",
+  sameSite: isProduction ? "lax" : "strict",
+  domain: COOKIE_DOMAIN,
+  path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
+
+// Options xóa cookie phải KHỚP domain/path/secure/sameSite với lúc set,
+// nếu không trình duyệt sẽ không xóa được cookie khi logout.
+const REFRESH_TOKEN_CLEAR_OPTIONS = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? "lax" : "strict",
+  domain: COOKIE_DOMAIN,
+  path: "/",
 };
 
 module.exports = {
@@ -56,4 +73,5 @@ module.exports = {
   generateResetToken,
   verifyResetToken,
   REFRESH_TOKEN_COOKIE_OPTIONS,
+  REFRESH_TOKEN_CLEAR_OPTIONS,
 };

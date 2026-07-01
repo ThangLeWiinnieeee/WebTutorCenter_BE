@@ -30,10 +30,29 @@ const deleteBySenderId = async (senderId) => {
   return Message.deleteMany({ senderId });
 };
 
+// Gom URL ảnh (Cloudinary) của mọi tin nhắn trong một hội thoại — để dọn ảnh
+// khi xóa vĩnh viễn tài khoản.
+const findImageUrlsByConversationId = async (conversationId) => {
+  const docs = await Message.find({ conversationId, imageUrl: { $ne: null } })
+    .select("imageUrl")
+    .lean();
+  return docs.map((doc) => doc.imageUrl).filter(Boolean);
+};
+
+// Gom URL ảnh của mọi tin nhắn do một người dùng gửi (kể cả ở hội thoại khác, vd admin).
+const findImageUrlsBySenderId = async (senderId) => {
+  const docs = await Message.find({ senderId, imageUrl: { $ne: null } })
+    .select("imageUrl")
+    .lean();
+  return docs.map((doc) => doc.imageUrl).filter(Boolean);
+};
+
 module.exports = {
   create,
   findByConversationPage,
   countByConversation,
   deleteByConversationId,
   deleteBySenderId,
+  findImageUrlsByConversationId,
+  findImageUrlsBySenderId,
 };
