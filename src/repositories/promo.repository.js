@@ -53,6 +53,10 @@ const findDeleted = async ({ page, limit }) => {
 // Xóa vĩnh viễn (hard delete) — chỉ áp dụng cho mã đang ở thùng rác
 const deleteById = (id) => Promo.findOneAndDelete({ _id: id, deletedAt: { $ne: null } });
 
+// Xóa vĩnh viễn toàn bộ voucher cá nhân của một user (xóa vĩnh viễn tài khoản).
+// Chỉ đụng mã có ownerUserId khớp; mã ưu đãi toàn cục (ownerUserId=null) không bị ảnh hưởng.
+const deleteByOwnerUserId = (ownerUserId) => Promo.deleteMany({ ownerUserId });
+
 const incrementUsed = (id) =>
   Promo.findByIdAndUpdate(id, { $inc: { usedCount: 1 } }, { new: true });
 
@@ -78,5 +82,6 @@ module.exports = {
   restore,
   findDeleted,
   deleteById,
+  deleteByOwnerUserId,
   incrementUsed,
 };

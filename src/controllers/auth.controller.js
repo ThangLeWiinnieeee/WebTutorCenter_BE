@@ -1,6 +1,6 @@
 const authService = require("../services/auth.service");
 const { successResponse } = require("../utils/response");
-const { REFRESH_TOKEN_COOKIE_OPTIONS } = require("../utils/token");
+const { REFRESH_TOKEN_COOKIE_OPTIONS, REFRESH_TOKEN_CLEAR_OPTIONS } = require("../utils/token");
 const AppError = require("../utils/AppError");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
@@ -93,11 +93,7 @@ const logout = async (req, res, next) => {
   try {
     await authService.logout(req.user.id);
 
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
+    res.clearCookie("refreshToken", REFRESH_TOKEN_CLEAR_OPTIONS);
 
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,

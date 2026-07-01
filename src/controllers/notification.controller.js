@@ -1,6 +1,5 @@
 const notificationService = require("../services/notification.service");
 const { successResponse } = require("../utils/response");
-const HTTP_STATUS = require("../constants/status");
 
 const getNotifications = async (req, res, next) => {
   try {

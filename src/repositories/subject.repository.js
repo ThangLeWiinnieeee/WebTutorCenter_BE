@@ -16,11 +16,6 @@ const findById = async (id) => {
   return await Subject.findById(id);
 };
 
-// Khớp tên chính xác nhưng không phân biệt hoa/thường (để chặn trùng).
-const findByName = async (name) => {
-  return await Subject.findOne({ name: { $regex: `^${escapeRegExp(String(name).trim())}$`, $options: "i" } });
-};
-
 const existsByName = async (name, exceptId = null) => {
   const filter = { name: { $regex: `^${escapeRegExp(String(name).trim())}$`, $options: "i" } };
   if (exceptId) filter._id = { $ne: exceptId };
@@ -43,7 +38,6 @@ const maxOrder = async () => {
 module.exports = {
   findAll,
   findById,
-  findByName,
   existsByName,
   create,
   updateById,
