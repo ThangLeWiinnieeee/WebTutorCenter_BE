@@ -184,6 +184,28 @@ const checkCanViewSensitiveDetails = async (classItem, user) => {
   return false;
 };
 
+// Lớp đã bị "khóa" (người đăng đã chọn gia sư / đã ghép / đang xin hủy) đã bị ẩn khỏi danh sách
+// công khai. Chỉ người đăng, admin, hoặc gia sư đã tham gia lớp (đang có đơn) mới được mở chi tiết
+// bằng URL trực tiếp; người ngoài (khách, gia sư khác) bị chặn — coi như không tồn tại để không lộ
+// thông tin lớp đã có chủ. Lớp còn mở (chưa ai được chọn) thì ai cũng xem được như trước.
+const ensureCanViewLockedClass = async (classItem, user) => {
+  const lockingApplication = await classApplicationRepository.findLockingByClassId(classItem._id);
+  if (!lockingApplication) return;
+
+  if (user?.role === "admin") return;
+  const createdById = classItem.createdBy?._id || classItem.createdBy;
+  if (user && createdById && String(createdById) === String(user.id)) return;
+
+  if (user) {
+    const tutor = await tutorRepository.findByUserId(user.id);
+    if (tutor && (await classApplicationRepository.findByClassAndTutor(classItem._id, tutor._id))) {
+      return;
+    }
+  }
+
+  throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+};
+
 const maskClassItem = async (classItem, user) => {
   const isArray = Array.isArray(classItem);
   const items = isArray ? classItem : [classItem];
@@ -325,8 +347,9 @@ const getClasses = async (query, user) => {
 
   const page = query.page || 1;
   const limit = query.limit || 6;
-  // Ẩn các lớp đã có gia sư nhận (đơn pending/approved/cancel_requested) khỏi danh sách công khai,
-  // đồng bộ với feed "Lớp mới theo môn" — tránh nhiều gia sư cùng nhận một lớp.
+  // Ẩn các lớp đã "khóa" (đơn selected/approved/cancel_requested — người đăng đã chọn gia sư,
+  // đã ghép, hoặc đang xin hủy) khỏi danh sách công khai, đồng bộ với feed "Lớp mới theo môn".
+  // Lưu ý: đơn pending (mới ứng tuyển, chưa được chọn) KHÔNG khóa — lớp vẫn hiển thị để nhận thêm.
   const excludeIds = await classApplicationRepository.distinctActiveClassIds();
   const { classes, totalItems } = await classRepository.findMany(filters, { page, limit, excludeIds });
 
@@ -563,6 +586,8 @@ const getClassById = async (id, user) => {
   if (!classItem) {
     throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
+  // Lớp đã có gia sư được chọn/ghép → chặn người ngoài mở chi tiết bằng URL trực tiếp
+  await ensureCanViewLockedClass(classItem, user);
   const dto = await maskClassItem(classItem, user);
 
   // Người đăng (chủ bài) hoặc admin xem bài đã ghép → kèm thông tin + SĐT gia sư đã nhận lớp.
