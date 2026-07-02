@@ -175,6 +175,8 @@ class ClassApplicationMapper {
     return {
       id: application._id,
       status: application.status,
+      // Nguồn gốc đơn: "apply" (gia sư tự nhận lớp) | "invite" (người đăng mời dạy)
+      origin: application.origin || "apply",
       rejectionReason: application.rejectionReason ?? null,
       cancellationReason: application.cancellationReason ?? null,
       isUnlocked,

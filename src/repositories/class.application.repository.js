@@ -55,6 +55,16 @@ const findApprovedByClassId = async (classId) => {
   });
 };
 
+// Đơn đang "khóa" một lớp (người đăng đã chọn / đã ghép / đang xin hủy) — cùng tiêu chí ẩn lớp
+// khỏi danh sách công khai (LOCK_STATUSES). Dùng để chặn gia sư khác nhận lớp hoặc mở chi tiết
+// bằng URL trực tiếp khi lớp đã có gia sư được chọn.
+const findLockingByClassId = async (classId) => {
+  return await ClassApplication.findOne({
+    classId,
+    status: { $in: LOCK_STATUSES },
+  }).lean();
+};
+
 // Đơn đã được duyệt cho NHIỀU bài đăng cùng lúc — để hiển thị gia sư đã ghép trong
 // "Bài đăng của tôi" mà không cần truy vấn lặp từng lớp (tránh N+1).
 const findApprovedByClassIds = async (classIds = []) => {
@@ -355,6 +365,7 @@ module.exports = {
   findById,
   findByClassAndTutor,
   findApprovedByClassId,
+  findLockingByClassId,
   findApprovedByClassIds,
   distinctActiveClassIds,
   distinctClassIdsByTutor,
