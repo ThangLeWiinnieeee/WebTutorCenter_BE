@@ -17,7 +17,8 @@
     "seed:lookups": "node -r ./scripts/_atlasDns.js scripts/seedLookups.js",
     "seed:tutor-demo": "node -r ./scripts/_atlasDns.js scripts/seedTutorDemoData.js",
     "seed:pricing": "node -r ./scripts/_atlasDns.js scripts/seedClassPricing.js",
-    "seed:full": "node -r ./scripts/_atlasDns.js scripts/seedFullDemo.js"
+    "seed:full": "node -r ./scripts/_atlasDns.js scripts/seedFullDemo.js",
+    "cleanup:orphans": "node -r ./scripts/_atlasDns.js scripts/cleanupOrphanedData.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

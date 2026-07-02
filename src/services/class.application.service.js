@@ -27,6 +27,17 @@ const applyForClass = async (userId, classId) => {
     );
   }
 
+  // Người đăng đã chọn gia sư (đơn selected) hoặc lớp đang được xử lý (approved/cancel_requested)
+  // → lớp đã bị ẩn khỏi danh sách công khai. Chặn gia sư khác nhận lớp qua URL/API trực tiếp,
+  // đồng bộ với tiêu chí ẩn danh sách (LOCK_STATUSES). Lưu ý: status lớp vẫn "open" tới khi admin duyệt.
+  const lockingApplication = await classApplicationRepository.findLockingByClassId(classId);
+  if (lockingApplication) {
+    throw new AppError(
+      "Lớp này đã có gia sư được chọn hoặc đang xử lý, không thể nhận nữa.",
+      HTTP_STATUS.CONFLICT,
+    );
+  }
+
   // Không cho phép nhận lớp do chính mình đăng
   if (classItem.createdBy?.toString() === String(userId)) {
     throw new AppError(MESSAGE.CLASS_APPLICATION_OWN_CLASS, HTTP_STATUS.FORBIDDEN);
