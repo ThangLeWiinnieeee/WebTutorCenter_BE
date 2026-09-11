@@ -6,6 +6,7 @@ const {
   PHONE_REGEX,
   TIME_REGEX,
 } = require("../constants/tutor");
+const { CCCD_SUBMITTABLE_DECISIONS } = require("../constants/cccd");
 
 const availabilitySlotSchema = new mongoose.Schema(
   {
@@ -23,6 +24,21 @@ const availabilitySlotSchema = new mongoose.Schema(
       min: [0, "Khung giờ phải từ 0 đến 23"],
       max: [23, "Khung giờ phải từ 0 đến 23"],
     },
+  },
+  { _id: false }
+);
+
+const cccdVerificationSchema = new mongoose.Schema(
+  {
+    decision: { type: String, enum: CCCD_SUBMITTABLE_DECISIONS, required: true },
+    reasons: { type: [String], default: [] },
+    modelVersion: { type: String, default: null },
+    frontOcrConfidence: { type: Number, min: 0, max: 1, default: 0 },
+    backOcrConfidence: { type: Number, min: 0, max: 1, default: 0 },
+    qrDecoded: { type: Boolean, default: false },
+    qrOcrMatch: { type: Boolean, default: null },
+    profileMatch: { type: Boolean, default: null },
+    verifiedAt: { type: Date, required: true },
   },
   { _id: false }
 );
@@ -118,6 +134,11 @@ const tutorSchema = new mongoose.Schema(
       type: String,
       required: [true, "Ảnh CCCD mặt sau là bắt buộc"],
       trim: true,
+    },
+    // Kết quả AI được lấy từ biên nhận BE ký, không nhận trực tiếp từ dữ liệu client.
+    cccdVerification: {
+      type: cccdVerificationSchema,
+      default: null,
     },
     // Ảnh thẻ sinh viên mặt trước / mặt sau — mặt trước bắt buộc khi tình trạng là "sinh viên".
     studentCardFrontImage: {

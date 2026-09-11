@@ -51,4 +51,26 @@ const otpRateLimiter = rateLimit({
     }),
 });
 
-module.exports = { chatbotRateLimiter, loginRateLimiter, otpRateLimiter, LOGIN_FREE_ATTEMPTS };
+// OCR giữ ảnh trong RAM và dùng nhiều CPU, nên giới hạn theo tài khoản đã xác thực.
+// Đặt middleware này sau authMiddleware để không cần dựa vào IP/proxy cho khóa giới hạn.
+const cccdRateLimiter = rateLimit({
+  windowMs: Number(process.env.CCCD_RATE_WINDOW_MS) || 10 * 60 * 1000,
+  max: Number(process.env.CCCD_RATE_MAX) || 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => !isProduction,
+  keyGenerator: (req) => String(req.user.id),
+  handler: (req, res) =>
+    errorResponse(res, {
+      statusCode: HTTP_STATUS.TOO_MANY_REQUESTS,
+      message: MESSAGE.CCCD_RATE_LIMITED,
+    }),
+});
+
+module.exports = {
+  chatbotRateLimiter,
+  loginRateLimiter,
+  otpRateLimiter,
+  cccdRateLimiter,
+  LOGIN_FREE_ATTEMPTS,
+};

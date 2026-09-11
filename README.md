@@ -10,10 +10,10 @@ Backend API cho hệ thống quản lý trung tâm gia sư trực tuyến. Dự 
 - JWT access/refresh token
 - Joi validation
 - bcryptjs
-- Nodemailer (Gmail)
-- google-auth-library (đăng nhập Google)
+- Gmail API OAuth2 qua HTTPS (OTP/email nhắc lớp)
+- google-auth-library (đăng nhập Google + Gmail OAuth2)
 - Cloudinary + Multer (+ multer-storage-cloudinary) — upload avatar, giấy tờ gia sư, ảnh chat
-- cookie-parser, morgan, cors, dotenv
+- cookie-parser, morgan, cors, compression, dotenv
 - axios (gọi các service nội bộ: chatbot, AI-service…)
 - express-rate-limit (chống spam `/api/chatbot`)
 - Cổng thanh toán sandbox: VNPay, MoMo, ZaloPay (thu phí nhận lớp của gia sư)
@@ -22,9 +22,9 @@ Backend API cho hệ thống quản lý trung tâm gia sư trực tuyến. Dự 
 
 - Node.js
 - MongoDB
-- Gmail app password nếu dùng OTP email
+- Google OAuth client/secret + `GMAIL_REFRESH_TOKEN` nếu dùng OTP/email nhắc lớp
 - Cloudinary account nếu dùng upload avatar/giấy tờ/ảnh chat
-- Google OAuth client nếu dùng đăng nhập Google
+- `GOOGLE_LOGIN_CLIENT_ID` trùng client ID của FE nếu dùng đăng nhập Google
 
 ## Cài Đặt
 
@@ -32,7 +32,13 @@ Backend API cho hệ thống quản lý trung tâm gia sư trực tuyến. Dự 
 npm install
 ```
 
-Tạo file `.env` trong thư mục backend và điền các biến cần thiết cho server (PORT, NODE_ENV), MongoDB (`MONGODB_URI`/`MONGO_URI`), JWT, email, Google OAuth, Cloudinary, cổng thanh toán và CORS theo môi trường chạy của bạn. Xem `.env.example` để biết danh sách đầy đủ.
+Tạo file `.env` trong thư mục backend và điền các biến cần thiết cho server, `MONGODB_URI`, JWT, Gmail API OAuth2, Google login, Cloudinary, chatbot, cổng thanh toán và CORS. Xem `.env.example` để biết danh sách đầy đủ. Không commit `.env`; access/refresh secret phải mạnh và khác nhau.
+
+Lấy Gmail refresh token một lần bằng:
+
+```bash
+node scripts/getGmailRefreshToken.js
+```
 
 > Hạn refresh token khai báo bằng `REFRESH_TOKEN_TTL_DAYS` (số ngày, mặc định 30).
 > Biến cũ `REFRESH_TOKEN_EXPIRES_IN` **không còn được đọc** — nhớ đổi trong `.env` khi kéo code về.
@@ -53,7 +59,67 @@ Base API:
 http://localhost:<PORT>/api
 ```
 
-`server.js` tạo một HTTP server dùng chung cho Express và Socket.IO (`initSocket`). Khi server khởi động: preload cache tỉnh/huyện vào RAM (`locationCache.ensureLoaded()`) để request danh sách đầu tiên không phải chờ, rồi `startClassLifecycleScheduler()` chạy job nền định kỳ (mỗi 15 phút) để đánh dấu `expired` cho các bài đăng đã tới giờ học mà chưa có gia sư nhận.
+`server.js` tạo một HTTP server dùng chung cho Express và Socket.IO (`initSocket`). Khi server khởi động: preload cache tỉnh/huyện vào RAM (`locationCache.ensureLoaded()`) để request danh sách đầu tiên không phải chờ, rồi `startClassLifecycleScheduler()` chạy mỗi 15 phút để đánh dấu lớp quá hạn và nhắc người đăng chọn gia sư cho lớp sắp học.
+
+Server đồng thời chạy `startOutboxWorker()` để gửi notification/email đã ghi bền vững cùng transaction nghiệp vụ. Worker retry lỗi theo backoff thay vì làm thất bại request chính.
+
+## Triển Khai Production: Vercel + Render
+
+REST/auth phải đi qua `/api` cùng origin Vercel; Socket.IO kết nối thẳng Render bằng access token:
+
+```text
+Browser -- HTTPS /api --> Vercel rewrite --> Render /api
+        <-- refresh cookie HttpOnly, host-only trên origin Vercel --
+Browser -- Socket.IO + access token RAM ----------> Render
+```
+
+Cấu hình tối thiểu trên Render:
+
+```env
+NODE_ENV=production
+CLIENT_URL=https://<ten-project>.vercel.app
+COOKIE_DOMAIN=
+MONGODB_URI=mongodb+srv://...
+ACCESS_TOKEN_SECRET=...
+ACCESS_TOKEN_EXPIRES_IN=15m
+REFRESH_TOKEN_SECRET=...
+REFRESH_TOKEN_TTL_DAYS=30
+GOOGLE_LOGIN_CLIENT_ID=<trùng VITE_GOOGLE_CLIENT_ID>
+CCCD_URL=https://<cloud-run-service>.run.app
+CCCD_INTERNAL_SECRET=<random, tối thiểu 32 ký tự>
+CCCD_RECEIPT_SECRET=<random khác mọi JWT/internal secret, tối thiểu 32 ký tự>
+CCCD_TIMEOUT_MS=90000
+CCCD_RATE_WINDOW_MS=600000
+CCCD_RATE_MAX=5
+```
+
+- Luôn đặt `NODE_ENV=production`; server sẽ fail-fast nếu thiếu `CLIENT_URL`.
+- `CLIENT_URL` là allowlist origin chính xác dùng chung REST và Socket.IO. Nhiều origin phân cách bằng dấu phẩy; đặt URL chính đầu tiên vì email/payment redirect dùng entry đầu.
+- Không dùng wildcard `*.vercel.app`. Muốn test preview phải thêm chính xác preview origin.
+- Để trống hoặc xóa `COOKIE_DOMAIN`. Cookie web sẽ là host-only, `HttpOnly; Secure; SameSite=Lax; Path=/`; không cần `SameSite=None` vì browser đang gọi Vercel `/api` cùng origin.
+- CORS production cache preflight 600 giây; mọi API trả `Cache-Control: private, no-store` và HSTS.
+- CCCD fail-fast khi production thiếu `CCCD_URL`, dùng secret yếu hoặc dùng lại secret JWT. Endpoint quét giới hạn theo tài khoản trước khi Multer giữ ảnh trong RAM; ảnh CCCD được lưu Cloudinary `authenticated` và chỉ trả signed URL.
+
+Render service: root `WebTutorCenter_BE`, build command `npm ci`, start command `npm start`; để Render tự cấp `PORT`.
+
+## Kiểm Thử
+
+Chạy toàn bộ test:
+
+```bash
+npm test
+```
+
+`npm test` gồm `test/session.test.js`: test này kết nối `MONGODB_URI`, tạo rồi xóa user tạm. Chỉ chạy với database test/isolated, không trỏ production.
+
+Chạy suite nhanh không kết nối MongoDB trên PowerShell:
+
+```powershell
+$testFiles = Get-ChildItem -Path test -Filter *.test.js |
+  Where-Object { $_.Name -ne "session.test.js" } |
+  Select-Object -ExpandProperty FullName
+node --test $testFiles
+```
 
 ## Seed Dữ Liệu
 
@@ -63,6 +129,7 @@ Các module dữ liệu động (`locations`, `lookup`, `subject`...) đọc t�
 npm run seed:locations          # tỉnh/quận từ provinces.open-api.vn (idempotent, upsert)
 npm run seed:schools            # danh sách trường
 npm run seed:lookups            # danh mục động (subject, occupation_status, gender, ...)
+npm run seed:subjects           # danh mục môn học
 npm run seed:pricing            # cấu hình tính học phí (class pricing)
 npm run seed:users              # user demo
 npm run seed:tutors             # tutor demo
@@ -71,9 +138,12 @@ npm run seed:classes            # bài đăng lớp demo
 npm run seed:demo               # users + tutors
 npm run seed:full               # toàn bộ bộ dữ liệu demo
 npm run seed:update-tutor-fields  # backfill field thống kê cho tutor cũ
+npm run cleanup:orphans         # dry-run kiểm tra dữ liệu mồ côi
 ```
 
-> ⚠️ Một số script seed dùng `MONGODB_URI`, vài script dùng `MONGO_URI`; một số seed cũ tham chiếu đường dẫn constants có thể đã thay đổi. Kiểm tra đường dẫn/biến môi trường trước khi chạy. `scripts/seedSubjects.js` đã có npm script `seed:subjects`. Các script chạy qua `-r ./scripts/_atlasDns.js` để fix DNS khi kết nối MongoDB Atlas.
+`seed:lookups`, `seed:tutor-demo`, `seed:full` và `seed:update-tutor-fields` luôn bị chặn khi `NODE_ENV=production`; ngoài production vẫn yêu cầu chính xác `ALLOW_DESTRUCTIVE_SEED=true`. Full demo chỉ dọn namespace demo `@webtutor.dev`; backfill chỉ set field còn thiếu bằng `$exists:false`. Tắt lại cờ sau khi seed.
+
+`cleanup:orphans` mặc định chỉ báo cáo. Sau khi xem dry-run và backup database, dùng `npm run cleanup:orphans -- --apply`; thêm `--images` nếu muốn dọn ảnh Cloudinary best-effort.
 
 ## Cấu Trúc Chính
 
@@ -81,8 +151,7 @@ npm run seed:update-tutor-fields  # backfill field thống kê cho tutor cũ
 src/
 ├── controllers/        # Nhận req/res, gọi service, trả successResponse()
 ├── services/           # Logic nghiệp vụ, throw AppError
-├── mappers/            # Chuyển DB document → DTO (user, tutor, class, class.application,
-│                       #   notification, promo, review, profileChangeRequest, conversation, message)
+├── mappers/            # Chuyển DB document → DTO
 ├── repositories/       # Truy vấn MongoDB/Mongoose
 ├── models/             # Mongoose schema
 ├── validations/        # Joi schema cho request validation
@@ -96,12 +165,15 @@ src/
                         #   code, classLifecycle (scheduler), locationCache, search, serviceClient, AppError
 ```
 
-**Middleware bảo mật áp cho mọi route `/api`** (`routes/index.js`):
+**Middleware bảo mật dùng chung** (`app.js` và `routes/index.js`):
 
 - `sanitizeMongo` — xoá key chứa `$`/`.` khỏi input, chặn NoSQL injection.
 - `paginationGuard` — ép trần/sàn cho `page`/`limit`, chặn client kéo cả collection
   bằng `?limit=999999`.
-- `securityHeaders` — set header bảo mật ở tầng app.
+- `securityHeaders` — chống MIME sniffing/clickjacking, HSTS production và `Cache-Control: private, no-store`.
+- `cors` — production chỉ nhận origin nằm chính xác trong `CLIENT_URL`; không dùng wildcard preview.
+
+`app.js` đồng thời bật nén response, tắt `ETag` và chỉ tin `X-Forwarded-*` từ reverse proxy trong production.
 
 **Cache tỉnh/huyện (`utils/locationCache.js`)**: dữ liệu tỉnh/huyện là tĩnh nên được nạp toàn bộ vào RAM (Map theo `code`) thay vì query MongoDB theo từng mã. Loại bỏ N+1 khi resolve tên khu vực ở `TutorMapper`, `profileChangeRequest.mapper` và `class.service` (danh sách gia sư/lớp: từ ~N query location/trang → 0). Tự làm mới bằng TTL (10 phút) — sau khi cập nhật DB, cache tự nạp lại data mới mà không cần restart; cần tức thì thì gọi `invalidate()`. Preload sẵn lúc server khởi động.
 
@@ -115,18 +187,19 @@ Submodule trong `classes`: `class.application.*` (ứng tuyển / chọn / hủy
 
 **Chatbot** (`chatbot.controller/service/validation` + `middlewares/chatbot.middleware`) là **proxy** sang chatbot-service (FastAPI riêng), không có model/DB. Khác hẳn module `chat` ở trên (chat người dùng ↔ admin realtime).
 
+**Outbox** (`outbox.service/repository/model`) giữ notification và email nhắc chọn gia sư bền vững, chống gửi trùng bằng `dedupeKey` và retry tối đa 10 lần.
+
 ## API Overview
 
 Tất cả route mount dưới `/api` (`src/routes/index.js`): `auth`, `users`, `tutors`, `locations`, `notifications`, `classes`, `lookups`, `subjects`, `admin`, `settings`, `promos`, `reviews`, `chat`, `chatbot`, `payments`.
 
 ### Web và Mobile dùng chung API
 
-App mobile (Expo/React Native) gọi **cùng bộ endpoint** với web. Access token giống hệt
-nhau; chỉ **refresh token** khác ở kênh vận chuyển, vì hai nền tảng ràng buộc ngược nhau:
+App mobile (Expo/React Native) gọi **cùng bộ endpoint** với web. BE trả access token trong response; FE web chỉ giữ token này trong RAM và gửi qua Bearer/Socket.IO. Khi reload hoặc gặp `401`, FE gọi `/auth/refresh-token` để nhận access token mới. Chỉ **refresh token** khác ở kênh vận chuyển:
 
 | | Refresh token đi đâu | Lý do |
 |---|---|---|
-| Web | Cookie `httpOnly` | JS của trang không đọc được → XSS không trộm được |
+| Web | Cookie `HttpOnly` | JS của trang không đọc được → XSS không trộm được |
 | Mobile | Trong body response | RN không có cookie jar bền; app tự lưu vào SecureStore |
 
 App mobile khai báo mình bằng header `x-client-platform: mobile` ở **mọi** request.
@@ -143,7 +216,7 @@ Toàn bộ rẽ nhánh gói trong `utils/token.js` (`isMobileClient`, `sendRefre
 | POST | `/google` | Đăng nhập Google |
 | POST | `/login` | Đăng nhập email/mật khẩu |
 | POST | `/logout` | Đăng xuất |
-| POST | `/refresh-token` | Refresh access token (cookie httpOnly) |
+| POST | `/refresh-token` | Refresh access token (cookie web / body mobile) |
 | POST | `/forgot-password` | Gửi OTP quên mật khẩu |
 | POST | `/verify-forgot-password-otp` | Xác thực OTP quên mật khẩu (trả resetToken) |
 | POST | `/reset-password` | Đặt lại mật khẩu |
@@ -236,7 +309,7 @@ tin cậy dựa trên chữ ký của cổng, không dựa vào phiên đăng nh
 | GET | `/:id` | Chi tiết bài đăng |
 | GET | `/feed` | Feed theo môn (tutor) |
 | GET | `/my-posts` | Bài đăng của tôi (người đăng) |
-| PUT `/:id`, DELETE `/:id` | Chủ bài đăng sửa/xóa (xóa mềm) |
+| PUT `/:id`, DELETE `/:id` | Chủ bài đăng sửa; xóa vĩnh viễn khi chưa có đơn active |
 | POST | `/:id/complete` | Người đăng/gia sư xác nhận hoàn thành lớp |
 | POST | `/:id/apply` | Gia sư ứng tuyển nhận lớp (role tutor) |
 | GET | `/mine` | Đơn nhận lớp của tutor |
@@ -257,6 +330,7 @@ tin cậy dựa trên chữ ký của cổng, không dựa vào phiên đăng nh
 | Method | Endpoint | Mô tả |
 |---|---|---|
 | POST | `/` | Người đăng đánh giá gia sư (lớp đã hoàn thành) |
+| POST | `/:id/reply` | Gia sư phản hồi đánh giá của mình đúng 1 lần |
 | GET | `/tutor/:tutorId` | Danh sách đánh giá công khai của gia sư (cũng dùng cho gia sư xem đánh giá của chính mình) |
 
 ### Chat — `/api/chat` (yêu cầu đăng nhập)
@@ -276,6 +350,7 @@ Mỗi người dùng không phải admin (gia sư hoặc học viên) có một 
 | GET | `/conversations/:id/messages` | admin | Tin nhắn của một hội thoại |
 | POST | `/conversations/:id/messages` | admin | Admin gửi tin nhắn |
 | POST | `/conversations/:id/images` | admin | Admin gửi tin nhắn kèm ảnh |
+| POST | `/conversations/:id/card` | admin | Admin gửi thẻ thông tin tutor/class |
 | POST | `/conversations/:id/read` | admin | Đánh dấu đã đọc |
 
 **Realtime (Socket.IO):** client kết nối tới cùng host (không có `/api`), xác thực bằng access token qua `handshake.auth.token`. Mỗi user vào phòng `user:<id>`, admin vào thêm phòng `admins`. Server phát các sự kiện `chat:message`, `chat:read`, `chat:conversation` để đồng bộ tin nhắn, trạng thái đã đọc và hội thoại mới.
@@ -291,7 +366,10 @@ BE **proxy** câu hỏi người dùng sang **chatbot-service** (FastAPI riêng,
 - **Rate limit** (`express-rate-limit`): **chỉ bật ở production** (dev bỏ qua để test thoải mái) — mặc định 20 req/60s/IP → vượt trả `429`, chống spam đốt quota LLM. Chỉnh bằng `CHATBOT_RATE_MAX`/`CHATBOT_RATE_WINDOW_MS`. Sau reverse proxy hosting cần `trust proxy` (cũng chỉ bật ở production trong `app.js`) để đếm đúng theo IP client.
 - Body: `{ message (bắt buộc), history?, sessionId? }` (validate bằng `chatbot.validation`).
 - Middleware `buildChatbotRequest` bóc token + chuẩn hoá `user` vào `req.chatbotRequest`; controller chỉ gọi service + trả data.
-- Header `X-Internal-Secret` tự gắn khi đặt `CHATBOT_INTERNAL_SECRET` (xác thực service-to-service).
+- Header `X-Internal-Secret` tự gắn từ `CHATBOT_INTERNAL_SECRET` (xác thực service-to-service).
+  Production bắt buộc secret ít nhất 32 ký tự, trùng `INTERNAL_SECRET` của chatbot-service;
+  thiếu hoặc quá ngắn thì BE từ chối khởi động. Chatbot cũng phải đặt `NODE_ENV=production`.
+  Sau thay đổi này cần cấu hình secret rồi redeploy cả BE và chatbot; FE giữ nguyên.
 - Chatbot lỗi/tắt/timeout → `503` với thông báo rõ ràng, không làm sập BE.
 - Biến môi trường: `CHATBOT_URL` (mặc định `http://localhost:8001`), `CHATBOT_INTERNAL_SECRET`, `CHATBOT_TIMEOUT_MS` (mặc định `20000`).
 
@@ -319,23 +397,23 @@ Mỗi nhóm là một router con (`<chức năng>Admin.routes.js`) mount trong `
 
 ## Luồng Nghiệp Vụ Chính
 
-- **Đăng ký**: tạo pending registration + gửi OTP; verify OTP mới tạo user thực sự. Login trả access token, refresh token gửi theo kênh của client (cookie httpOnly cho web, body cho mobile).
+- **Đăng ký**: tạo pending registration + gửi OTP; verify OTP mới tạo user thực sự và cấp phiên đăng nhập. Login trả access token, refresh token gửi theo kênh của client (cookie HttpOnly cho web, body cho mobile).
 - **Phiên đăng nhập theo thiết bị**: mỗi lần đăng nhập tạo một phần tử trong `user.sessions`, giữ refresh token riêng + tên/loại thiết bị (`utils/device.js` đoán từ User-Agent; app mobile tự khai qua header `x-device-name`). Nhờ vậy đăng nhập song song nhiều máy được, và thu hồi được **đúng một máy** mà không đá các máy còn lại.
-  - `/auth/refresh-token` **xoay token tại chỗ** trong phiên hiện có, không mở phiên mới — nếu không mỗi lần gia hạn sẽ đẻ thêm một dòng "thiết bị" giả.
+  - `/auth/refresh-token` xoay token bằng compare-and-set tại phiên hiện có, không mở phiên mới. Mỗi refresh JWT có `jti` riêng để hai token phát cùng giây không bị trùng.
   - Hạn refresh token là `REFRESH_TOKEN_TTL_DAYS` (mặc định 30) — vì có xoay vòng nên đây là **hạn không hoạt động**: còn dùng app thì phiên tự gia hạn, im lặng quá lâu mới phải đăng nhập lại. Một biến này chi phối cả hạn JWT lẫn `maxAge` cookie để hai giá trị không lệch nhau.
   - `/auth/logout` chỉ đóng phiên của thiết bị đang gọi. Mất cookie (không xác định được phiên) thì đóng hết, tránh phiên mồ côi không ai gỡ được.
 - **Mật khẩu**: quy tắc độ mạnh nằm ở `constants/password.js` (tối thiểu 10 ký tự, có in hoa và ký tự đặc biệt), dùng chung cho đăng ký, đặt lại và đổi mật khẩu. Đặt lại mật khẩu qua OTP quên mật khẩu sẽ **đóng sạch mọi phiên** vì tình huống này thường do nghi lộ tài khoản; đổi mật khẩu khi đang đăng nhập thì người dùng tự chọn có thu hồi thiết bị khác hay không.
 - **Thanh toán phí nhận lớp**: đơn được duyệt → gia sư trả phí (`CLASS_FEE_RATE`, hiện 12% học phí tháng đầu, làm tròn tới 1.000đ) qua cổng sandbox tự chọn. BE tạo giao dịch `pending` + URL cổng; cổng gọi về `/return` (redirect người dùng) và `/ipn` (server-to-server), cả hai xác thực bằng chữ ký rồi chuyển giao dịch sang `success`/`failed`.
 - **Gia sư**: user gửi hồ sơ kèm ảnh giấy tờ (CCCD + thẻ sinh viên/bằng cấp) → `tutor.service` tạo profile `PENDING` + notify; `tutorAdmin.service` approve (→ `APPROVED`, nâng role user lên `tutor`) hoặc reject (kèm lý do). Gia sư phải có hồ sơ giấy tờ đầy đủ trước khi được nhận/được mời lớp.
 - **Đổi hồ sơ gia sư**: tutor gửi `profile change request` (whitelist field) → notify admin → `profileChangeAdmin.service` duyệt mới áp dụng vào Tutor.
-- **Vòng đời bài đăng** (`CLASS_STATUS`): `open` → `matched` (đã ghép gia sư) / `expired` (quá giờ chưa có ai nhận) → `completed` (hai phía xác nhận). Job nền tự đánh dấu `expired`. Danh sách công khai ẩn cả `matched`, `expired` và `completed`; ngoài ra gia sư đã ấn nhận lớp thì không thấy lại lớp đó nữa.
+- **Vòng đời bài đăng** (`CLASS_STATUS`): `open` → `matched` (đã ghép gia sư) / `expired` (quá giờ chưa có ai nhận) → `completed` (hai phía xác nhận). Job mỗi 15 phút tự đánh dấu `expired` và nhắc người đăng chọn gia sư khi còn tối đa 2 ngày. Notification/email đi qua outbox; danh sách công khai ẩn `matched`, `expired`, `completed` và lớp tutor đã ứng tuyển.
 - **Ghép gia sư qua ứng tuyển** (`CLASS_APPLICATION_STATUS`): tutor `apply` (PENDING) → người đăng `select` 1 gia sư (SELECTED) → admin approve (APPROVED → lớp `matched`, các ứng viên khác `NOT_SELECTED`, `$inc` thống kê tutor) / reject (REJECTED, người đăng chọn lại). Tutor có thể xin hủy đơn (CANCEL_REQUESTED) → `cancellationAdmin` duyệt (CANCELLED) hoặc từ chối.
 - **Ghép gia sư qua lời mời trực tiếp** (`CLASS_APPLICATION_ORIGIN`): người đăng `invite` một gia sư cụ thể → tạo đơn lời mời + notify gia sư → gia sư `accept` (vào luồng duyệt như ứng tuyển) hoặc `decline`.
 - **Hoàn thành & thưởng**: cả người đăng và gia sư xác nhận `complete` → lớp `completed` → tặng voucher (notify `CLASS_COMPLETED_REWARD`). Người đăng được đánh giá gia sư 1 lần/lớp; đánh giá cập nhật `ratingSum`/`reviewCount`/`averageRating` của tutor.
 - **Mã ưu đãi**: admin tạo mã toàn cục; voucher cá nhân (`ownerUserId`) nằm trong kho của từng user; áp ở màn báo giá (`promo.validate`), lưu `promoCode`/`promoDiscount`/`finalFeePerMonth` trên lớp.
 - **Chat người dùng ↔ admin**: gia sư/học viên nhắn tới admin qua hội thoại duy nhất của mình; admin xem danh sách và trả lời. Tin nhắn (kèm ảnh tùy chọn) lưu MongoDB, đồng bộ realtime qua Socket.IO; đếm chưa đọc hai phía (`tutorUnread`/`adminUnread`).
 - **Thông báo**: lưu trong MongoDB theo `userId`; khi mark read set `readAt`, TTL tự xóa sau 7 ngày.
-- **Xóa mềm / thùng rác**: classes, promos, reviews, users dùng `deletedAt`/`deletedBy`; admin xem/khôi phục/xóa hẳn qua `/admin/trash`.
+- **Xóa mềm / thùng rác**: thao tác xóa của admin với classes, promos, reviews và users dùng `deletedAt`/`deletedBy`; admin xem/khôi phục/xóa hẳn qua `/admin/trash`. Chủ bài chỉ được xóa vĩnh viễn lớp của mình khi chưa có đơn active.
 
 ## Quy Ước Code
 

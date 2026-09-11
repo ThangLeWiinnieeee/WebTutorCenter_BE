@@ -9,6 +9,7 @@ const HTTP_STATUS = require("../constants/status");
 const { TUTOR_STATUS } = require("../constants/tutor");
 const OCCUPATION_STATUS = require("../constants/occupationStatus");
 const { TutorMapper } = require("../mappers");
+const cccdService = require("./cccd.service");
 
 // Hồ sơ chứng thực đầy đủ khi: có CCCD 2 mặt + (sinh viên: thẻ SV 2 mặt | còn lại: ≥1 bằng cấp).
 // Dùng để chặn nhận lớp và kiểm tra khi gia sư bổ sung hồ sơ.
@@ -47,6 +48,14 @@ const registerTutor = async (userId, tutorData) => {
   if (existing) {
     throw new AppError(MESSAGE.TUTOR_ALREADY_REGISTERED, HTTP_STATUS.CONFLICT);
   }
+
+  tutorData.cccdVerification = cccdService.consumeVerificationReceipt(
+    tutorData.cccdVerificationReceipt,
+    userId,
+    tutorData.cccdFrontImage,
+    tutorData.cccdBackImage
+  );
+  delete tutorData.cccdVerificationReceipt;
 
   // Môn học phải thuộc danh mục đang bật (nguồn DB, không còn enum cứng)
   const subjects = Array.isArray(tutorData.subjects) ? tutorData.subjects : [];

@@ -224,6 +224,17 @@ const MESSAGE = {
   TUTOR_UPLOAD_DOC_SUCCESS: "Tải ảnh lên thành công",
   TUTOR_UPLOAD_DOC_FAILED: "Tải ảnh lên thất bại, vui lòng thử lại",
 
+  // Quét CCCD bằng service AI nội bộ
+  CCCD_VERIFY_SUCCESS: "Đã hoàn tất quét CCCD",
+  CCCD_IMAGES_REQUIRED: "Vui lòng chọn đủ ảnh CCCD mặt trước và mặt sau",
+  CCCD_FILE_INVALID: "Chỉ hỗ trợ ảnh CCCD định dạng JPG, PNG hoặc WEBP",
+  CCCD_FILE_TOO_LARGE: "Mỗi ảnh CCCD không được vượt quá 8MB",
+  CCCD_RATE_LIMITED: "Bạn đã quét CCCD quá nhiều lần, vui lòng thử lại sau ít phút.",
+  CCCD_UPLOAD_FAILED: "Không thể lưu ảnh CCCD an toàn, vui lòng thử lại sau.",
+  CCCD_RESPONSE_INVALID: "Dịch vụ quét CCCD trả về dữ liệu không hợp lệ",
+  CCCD_CONFIG_MISSING: "Cấu hình bảo mật quét CCCD chưa hợp lệ",
+  CCCD_RECEIPT_INVALID: "Kết quả quét đã hết hạn hoặc không khớp, vui lòng quét lại CCCD",
+
   // Tutor admin
   TUTOR_ADMIN_STATS_SUCCESS: "Lấy thống kê dashboard thành công",
   TUTOR_ADMIN_PENDING_SUCCESS: "Lấy danh sách gia sư chờ duyệt thành công",

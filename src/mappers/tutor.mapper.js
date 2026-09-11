@@ -15,6 +15,7 @@ class TutorMapper {
       ? {
           cccdFrontImage: tutor.cccdFrontImage || null,
           cccdBackImage: tutor.cccdBackImage || null,
+          cccdVerification: tutor.cccdVerification || null,
           studentCardFrontImage: tutor.studentCardFrontImage || null,
           studentCardBackImage: tutor.studentCardBackImage || null,
           certificateImages: tutor.certificateImages || [],
