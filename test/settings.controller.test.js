@@ -80,3 +80,22 @@ test("cho phép lưu hợp đồng rỗng", async () => {
     settingsRepository.upsertValue = originalUpsertValue;
   }
 });
+
+
+test("public settings disable browser and proxy caching", async (t) => {
+  const service = require("../src/services/settings.service");
+  const controller = require("../src/controllers/settings.controller");
+  const settings = { phone: "0900000001", phone2: "0900000002" };
+  t.mock.method(service, "getFooterSettings", async () => settings);
+  const headers = {};
+  let body;
+  const res = {
+    set(name, value) { headers[name] = value; return this; },
+    status(code) { assert.equal(code, 200); return this; },
+    json(value) { body = value; return this; },
+  };
+  await controller.getFooterSettings({}, res, (error) => { throw error; });
+  assert.equal(headers["Cache-Control"], "no-store");
+  assert.equal(body.success, true);
+  assert.deepEqual(body.data, settings);
+});

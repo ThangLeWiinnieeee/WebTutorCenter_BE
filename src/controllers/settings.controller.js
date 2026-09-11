@@ -6,6 +6,7 @@ const MESSAGE = require("../constants/message");
 const getFooterSettings = async (req, res, next) => {
   try {
     const footer = await settingsService.getFooterSettings();
+    res.set("Cache-Control", "no-store");
 
     return successResponse(res, {
       message: MESSAGE.SETTINGS_FOOTER_GET_SUCCESS,

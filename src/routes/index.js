@@ -18,6 +18,7 @@ const promoRoutes = require("./promo.routes");
 const reviewRoutes = require("./review.routes");
 const chatRoutes = require("./chat.routes");
 const chatbotRoutes = require("./chatbot.routes");
+const cccdRoutes = require("./cccd.routes");
 const paymentRoutes = require("./payment.routes");
 
 // Làm sạch input (xoá key toán tử Mongo "$"/"." ) cho mọi route /api -> chống NoSQL injection
@@ -40,6 +41,7 @@ router.use("/promos", promoRoutes);
 router.use("/reviews", reviewRoutes);
 router.use("/chat", chatRoutes);
 router.use("/chatbot", chatbotRoutes);
+router.use("/cccd", cccdRoutes);
 router.use("/payments", paymentRoutes);
 
 module.exports = router;

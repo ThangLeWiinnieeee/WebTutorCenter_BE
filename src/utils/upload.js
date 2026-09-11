@@ -79,21 +79,33 @@ const uploadChatImageMiddleware = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
 }).single("image");
 
-// Tách public_id từ URL Cloudinary để gọi destroy
-const extractCloudinaryPublicId = (url) => {
-  if (!url || !url.includes("cloudinary.com")) return null;
-  const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z]+$/);
-  return match ? match[1] : null;
+// Tách public_id + delivery type từ URL public hoặc signed/authenticated để gọi destroy.
+const extractCloudinaryAsset = (url) => {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (_error) {
+    return null;
+  }
+  if (parsed.protocol !== "https:" || parsed.hostname !== "res.cloudinary.com") return null;
+
+  const match = parsed.pathname.match(
+    /\/image\/(upload|authenticated|private)\/(?:s--[^/]+--\/)?(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+$/
+  );
+  return match ? { type: match[1], publicId: match[2] } : null;
 };
 
 // Xoá một ảnh trên Cloudinary theo URL (bỏ qua URL không phải Cloudinary; lỗi chỉ log)
 const deleteImageFromCloudinary = async (url) => {
-  const publicId = extractCloudinaryPublicId(url);
-  if (!publicId) return;
+  const asset = extractCloudinaryAsset(url);
+  if (!asset) return;
   try {
-    await cloudinary.uploader.destroy(publicId);
+    await cloudinary.uploader.destroy(asset.publicId, {
+      resource_type: "image",
+      type: asset.type,
+    });
   } catch (err) {
-    console.error("Delete Cloudinary image failed:", publicId, err.message);
+    console.error("Delete Cloudinary image failed:", err.name || "unknown");
   }
 };
 
@@ -109,6 +121,7 @@ module.exports = {
   uploadChatImageMiddleware,
   deleteImageFromCloudinary,
   deleteImagesFromCloudinary,
+  extractCloudinaryAsset,
   // Giữ tên cũ cho luồng đổi avatar (alias của deleteImageFromCloudinary).
   deleteAvatarFromCloudinary: deleteImageFromCloudinary,
 };

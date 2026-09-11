@@ -187,6 +187,13 @@ const registerTutorSchema = Joi.object({
     "any.required": "Ảnh CCCD mặt sau là bắt buộc",
   }),
 
+  // Biên nhận do BE ký sau khi quét; tutor.service xác minh user + đúng hai URL ở trên.
+  cccdVerificationReceipt: Joi.string().max(8192).required().messages({
+    "string.empty": "Vui lòng quét CCCD trước khi gửi hồ sơ",
+    "string.max": "Kết quả quét CCCD không hợp lệ",
+    "any.required": "Vui lòng quét CCCD trước khi gửi hồ sơ",
+  }),
+
   // Thẻ sinh viên mặt trước: bắt buộc khi là sinh viên. Mặt sau: tùy chọn.
   studentCardFrontImage: Joi.string()
     .uri()
