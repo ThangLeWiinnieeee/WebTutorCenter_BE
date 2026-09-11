@@ -1,10 +1,7 @@
 const locationCache = require("../utils/locationCache");
 
 class TutorMapper {
-  // options.includeDocuments: chỉ thêm ảnh giấy tờ (CCCD/bằng cấp) cho người được phép xem
-  // (chủ hồ sơ + admin). Mặc định KHÔNG trả để không lộ ở endpoint công khai.
-  // Tham số `cache` giữ lại cho tương thích chữ ký cũ nhưng không còn dùng — tên tỉnh/huyện
-  // lấy từ locationCache (RAM), không query DB nữa (xem utils/locationCache.js).
+  // Chuyển hồ sơ gia sư thành DTO (includeDocuments để kèm ảnh giấy tờ cho người được phép xem)
   static async toDTO(tutor, user, cache = null, options = {}) {
     if (!tutor) {
       throw new Error("TutorMapper.toDTO: tutor is required");
@@ -18,6 +15,7 @@ class TutorMapper {
       ? {
           cccdFrontImage: tutor.cccdFrontImage || null,
           cccdBackImage: tutor.cccdBackImage || null,
+          cccdVerification: tutor.cccdVerification || null,
           studentCardFrontImage: tutor.studentCardFrontImage || null,
           studentCardBackImage: tutor.studentCardBackImage || null,
           certificateImages: tutor.certificateImages || [],
@@ -43,6 +41,8 @@ class TutorMapper {
       schoolName: tutor.schoolName,
       graduationYear: tutor.graduationYear,
       bio: tutor.bio,
+      // Bằng cấp công khai — gia sư chủ động cho mọi người xem (khác ảnh xác thực riêng tư).
+      publicCertificateImages: tutor.publicCertificateImages || [],
       availability: tutor.availability,
       totalClassesAccepted: tutor.totalClassesAccepted ?? 0,
       classesAcceptedThisMonth: tutor.classesAcceptedThisMonth ?? 0,
@@ -58,6 +58,7 @@ class TutorMapper {
     };
   }
 
+  // Chuyển danh sách gia sư thành danh sách DTO
   static async toDTOList(tutors, options = {}) {
     if (!Array.isArray(tutors)) return [];
     await locationCache.ensureLoaded(); // nạp 1 lần cho cả list; toDTO đọc từ RAM
@@ -85,6 +86,7 @@ class TutorMapper {
     };
   }
 
+  // Đọc tên tỉnh/huyện của khu vực hiện tại từ cache
   static _resolveCurrentArea(currentArea) {
     if (!currentArea || !currentArea.province || !currentArea.district) return null;
 

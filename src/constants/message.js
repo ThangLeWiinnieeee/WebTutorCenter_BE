@@ -12,6 +12,12 @@ const MESSAGE = {
   // User
   USER_NOT_FOUND: "Không tìm thấy người dùng",
   UPDATE_PROFILE_SUCCESS: "Cập nhật thông tin cá nhân thành công",
+  CHANGE_PASSWORD_SUCCESS: "Đổi mật khẩu thành công. Vui lòng đăng nhập lại.",
+  CURRENT_PASSWORD_INCORRECT: "Mật khẩu hiện tại không đúng",
+  SESSION_LIST_SUCCESS: "Lấy danh sách phiên đăng nhập thành công",
+  SESSION_NOT_FOUND: "Phiên đăng nhập không tồn tại hoặc đã bị thu hồi",
+  SESSION_REVOKED: "Đã đăng xuất thiết bị",
+  SESSIONS_REVOKED: "Đã đăng xuất khỏi tất cả thiết bị",
   UPLOAD_AVATAR_SUCCESS: "Cập nhật ảnh đại diện thành công",
   UPLOAD_AVATAR_FAILED: "Tải ảnh lên thất bại",
   EMAIL_ALREADY_EXISTS: "Email đã được sử dụng",
@@ -28,6 +34,8 @@ const MESSAGE = {
   OTP_EXPIRED: "Mã OTP đã hết hạn, vui lòng yêu cầu mã mới",
   OTP_ALREADY_VERIFIED: "Email này đã được xác thực",
   OTP_RESEND_TOO_SOON: "Vui lòng chờ trước khi yêu cầu gửi lại mã OTP",
+  OTP_TOO_MANY_ATTEMPTS: "Bạn đã nhập sai mã OTP quá nhiều lần, vui lòng yêu cầu mã mới",
+  OTP_RATE_LIMITED: "Bạn thao tác OTP quá nhiều lần, vui lòng thử lại sau ít phút",
   REGISTRATION_NOT_FOUND: "Phiên đăng ký không tồn tại hoặc đã hết hạn, vui lòng đăng ký lại",
 
   // Forgot password
@@ -43,10 +51,12 @@ const MESSAGE = {
   TOKEN_INVALID: "Token không hợp lệ hoặc đã hết hạn",
   TOKEN_EXPIRED: "Token đã hết hạn",
   REFRESH_TOKEN_INVALID: "Refresh token không hợp lệ",
+  REFRESH_TOKEN_SECRET_MISSING: "REFRESH_TOKEN_SECRET chưa được cấu hình",
 
   // Validation
   VALIDATION_ERROR: "Dữ liệu đầu vào không hợp lệ",
   QUERY_VALIDATION_ERROR: "Bộ lọc không hợp lệ",
+  INPUT_TOO_DEEP: "Dữ liệu đầu vào lồng quá sâu",
 
   // Tutor
   TUTOR_REGISTER_SUCCESS: "Đăng ký làm gia sư thành công, vui lòng chờ phê duyệt",
@@ -79,6 +89,20 @@ const MESSAGE = {
   CLASS_APPLICATION_STATS_SUCCESS: "Lấy thống kê đơn đăng ký nhận lớp thành công",
   CLASS_APPLICATION_APPROVE_SUCCESS: "Đã duyệt gia sư cho lớp thành công",
   CLASS_APPLICATION_REJECT_SUCCESS: "Đã từ chối đơn đăng ký nhận lớp",
+
+  // Thanh toán phí nhận lớp (gia sư trả phí qua VNPay sau khi được admin duyệt)
+  PAYMENT_INIT_SUCCESS: "Đang chuyển đến cổng thanh toán VNPay...",
+  PAYMENT_APPLICATION_NOT_APPROVED: "Chỉ có thể thanh toán phí cho lớp đã được admin duyệt",
+  PAYMENT_ALREADY_PAID: "Bạn đã thanh toán phí nhận lớp này rồi",
+  PAYMENT_PENDING_EXISTS: "Đã có một giao dịch đang chờ xử lý cho lớp này",
+  PAYMENT_INVALID_AMOUNT: "Không xác định được số tiền phí nhận lớp",
+  PAYMENT_NOT_FOUND: "Không tìm thấy giao dịch thanh toán",
+  PAYMENT_LIST_SUCCESS: "Lấy lịch sử thanh toán thành công",
+  PAYMENT_CONFIG_MISSING: "Cổng thanh toán chưa được cấu hình",
+  PAYMENT_PROVIDER_INVALID: "Cổng thanh toán không hợp lệ",
+  PAYMENT_PROVIDERS_LIST_SUCCESS: "Lấy danh sách cổng thanh toán thành công",
+  PAYMENT_ADMIN_LIST_SUCCESS: "Lấy danh sách thanh toán thành công",
+  STATS_SUMMARY_SUCCESS: "Lấy thống kê thành công",
 
   // Người đăng chọn gia sư từ danh sách ứng tuyển
   CLASS_APPLICANTS_LIST_SUCCESS: "Lấy danh sách gia sư ứng tuyển thành công",
@@ -161,6 +185,147 @@ const MESSAGE = {
   PRICING_CONFIG_MISSING: "Chưa cấu hình học phí, vui lòng chạy seed pricing",
   CLASS_NOT_FOUND: "Không tìm thấy lớp mới",
   INVALID_AREA: "Khu vực tỉnh/quận không hợp lệ",
+  CLASS_START_DATE_TOO_SOON:
+    "Ngày bắt đầu buổi học phải cách hôm nay ít nhất 2 ngày (không nhận hôm nay hoặc ngày mai).",
+  CLASS_UPDATE_SUCCESS: "Cập nhật bài đăng thành công",
+  CLASS_DELETE_SUCCESS: "Đã xóa bài đăng",
+  CLASS_COMPLETE_SUCCESS: "Đã xác nhận hoàn thành lớp",
+  CLASS_TRASH_SUCCESS: "Đã chuyển bài đăng vào thùng rác",
+  CLASS_EDIT_FORBIDDEN: "Bạn không có quyền sửa bài đăng này.",
+  CLASS_EDIT_ONLY_OPEN: "Chỉ có thể sửa bài đăng khi đang mở (chưa ghép gia sư).",
+  CLASS_EDIT_HAS_APPLICANTS: "Không thể sửa bài đăng khi đã có gia sư ứng tuyển. Vui lòng xử lý đơn trước.",
+  CLASS_DELETE_FORBIDDEN: "Bạn không có quyền xóa bài đăng này.",
+  CLASS_DELETE_HAS_APPLICANTS:
+    "Không thể xóa bài đăng khi đã có gia sư ứng tuyển hoặc nhận lớp. Vui lòng liên hệ admin nếu cần.",
+  CLASS_COMPLETE_ONLY_MATCHED: "Chỉ lớp đã có gia sư nhận mới có thể xác nhận hoàn thành.",
+  CLASS_COMPLETE_FORBIDDEN: "Bạn không có quyền xác nhận hoàn thành lớp này.",
+
+  // Class application (service) — thông báo nghiệp vụ tĩnh
+  CLASS_APPLICATION_CLASS_CLOSED: "Lớp này không còn nhận đăng ký (đã có gia sư hoặc đã hết hạn).",
+  CLASS_APPLICATION_CLASS_TAKEN: "Lớp này đã có gia sư được chọn hoặc đang xử lý, không thể nhận nữa.",
+  CLASS_APPLICATION_DOCS_REQUIRED:
+    "Bạn cần bổ sung ảnh CCCD và thẻ sinh viên/bằng cấp trong hồ sơ trước khi nhận lớp.",
+  CLASS_APPLICATION_SUBJECT_MISMATCH: "Bạn chưa đăng ký dạy môn học của lớp này.",
+  CLASS_APPLICATION_GENDER_MISMATCH: "Giới tính của bạn không đáp ứng yêu cầu của lớp này.",
+  CLASS_APPLICATION_LEVEL_MISMATCH: "Trình độ của bạn không đáp ứng yêu cầu của lớp này.",
+  TUTOR_NOT_APPROVED: "Hồ sơ gia sư của bạn chưa được phê duyệt",
+
+  // Profile change — giấy tờ
+  PROFILE_CHANGE_CCCD_REQUIRED: "Vui lòng tải đủ ảnh CCCD mặt trước và mặt sau.",
+  PROFILE_CHANGE_STUDENT_CARD_REQUIRED: "Vui lòng tải đủ ảnh thẻ sinh viên mặt trước và mặt sau.",
+  PROFILE_CHANGE_CERTIFICATE_REQUIRED: "Vui lòng tải lên ít nhất 1 ảnh bằng cấp.",
+
+  // Tutor — danh sách công khai + upload giấy tờ
+  TUTOR_LIST_SUCCESS: "Lấy danh sách gia sư thành công",
+  TUTOR_TOP_SUCCESS: "Lấy danh sách top gia sư thành công",
+  TUTOR_TOP_MONTH_SUCCESS: "Lấy danh sách top gia sư tháng này thành công",
+  TUTOR_NEW_SUCCESS: "Lấy danh sách gia sư mới thành công",
+  TUTOR_SEARCH_SUCCESS: "Tìm kiếm gia sư thành công",
+  TUTOR_UPLOAD_DOC_SUCCESS: "Tải ảnh lên thành công",
+  TUTOR_UPLOAD_DOC_FAILED: "Tải ảnh lên thất bại, vui lòng thử lại",
+
+  // Quét CCCD bằng service AI nội bộ
+  CCCD_VERIFY_SUCCESS: "Đã hoàn tất quét CCCD",
+  CCCD_IMAGES_REQUIRED: "Vui lòng chọn đủ ảnh CCCD mặt trước và mặt sau",
+  CCCD_FILE_INVALID: "Chỉ hỗ trợ ảnh CCCD định dạng JPG, PNG hoặc WEBP",
+  CCCD_FILE_TOO_LARGE: "Mỗi ảnh CCCD không được vượt quá 8MB",
+  CCCD_RATE_LIMITED: "Bạn đã quét CCCD quá nhiều lần, vui lòng thử lại sau ít phút.",
+  CCCD_UPLOAD_FAILED: "Không thể lưu ảnh CCCD an toàn, vui lòng thử lại sau.",
+  CCCD_RESPONSE_INVALID: "Dịch vụ quét CCCD trả về dữ liệu không hợp lệ",
+  CCCD_CONFIG_MISSING: "Cấu hình bảo mật quét CCCD chưa hợp lệ",
+  CCCD_RECEIPT_INVALID: "Kết quả quét đã hết hạn hoặc không khớp, vui lòng quét lại CCCD",
+
+  // Tutor admin
+  TUTOR_ADMIN_STATS_SUCCESS: "Lấy thống kê dashboard thành công",
+  TUTOR_ADMIN_PENDING_SUCCESS: "Lấy danh sách gia sư chờ duyệt thành công",
+  TUTOR_ADMIN_APPROVE_SUCCESS: "Phê duyệt gia sư thành công",
+  TUTOR_ADMIN_REJECT_SUCCESS: "Từ chối hồ sơ gia sư thành công",
+  TUTOR_NOT_PENDING: "Hồ sơ này không ở trạng thái chờ duyệt",
+
+  // Trash (admin)
+  TRASH_LIST_SUCCESS: "Lấy danh sách thùng rác thành công",
+  TRASH_COUNTS_SUCCESS: "Lấy số lượng thùng rác thành công",
+  TRASH_RESTORE_SUCCESS: "Khôi phục thành công",
+  TRASH_PURGE_SUCCESS: "Đã xóa vĩnh viễn",
+  TRASH_TYPE_INVALID: "Loại dữ liệu không hợp lệ",
+  TRASH_RESTORE_NOT_FOUND: "Không tìm thấy mục cần khôi phục",
+  TRASH_PURGE_NOT_FOUND: "Không tìm thấy mục cần xóa",
+
+  // Promo — controller
+  PROMO_CREATE_SUCCESS: "Tạo mã ưu đãi thành công",
+  PROMO_LIST_SUCCESS: "Lấy danh sách mã ưu đãi thành công",
+  PROMO_UPDATE_SUCCESS: "Cập nhật mã ưu đãi thành công",
+  PROMO_DELETE_SUCCESS: "Đã chuyển mã ưu đãi vào thùng rác",
+  PROMO_APPLY_SUCCESS: "Áp dụng mã ưu đãi thành công",
+  VOUCHER_LIST_SUCCESS: "Lấy danh sách mã giảm giá thành công",
+  // Promo — service (nghiệp vụ)
+  PROMO_PERCENT_OVER_100: "Giảm theo % không được vượt quá 100",
+  PROMO_START_AFTER_END: "Ngày bắt đầu phải trước ngày hết hạn",
+  PROMO_ALREADY_EXISTS: "Mã ưu đãi đã tồn tại",
+  PROMO_IN_TRASH: "Mã này đang nằm trong thùng rác. Hãy khôi phục hoặc xóa vĩnh viễn trước khi tạo lại.",
+  PROMO_NOT_FOUND: "Không tìm thấy mã ưu đãi",
+  PROMO_CODE_REQUIRED: "Vui lòng nhập mã ưu đãi",
+  PROMO_NOT_EXISTS: "Mã ưu đãi không tồn tại",
+  PROMO_INACTIVE: "Mã ưu đãi đã ngừng áp dụng",
+  PROMO_NOT_OWNED: "Mã này không thuộc về bạn",
+  PROMO_NOT_STARTED: "Mã ưu đãi chưa có hiệu lực",
+  PROMO_EXPIRED: "Mã ưu đãi đã hết hạn",
+  PROMO_USAGE_EXCEEDED: "Mã ưu đãi đã hết lượt sử dụng",
+
+  // Location
+  LOCATION_PROVINCES_SUCCESS: "Lấy danh sách tỉnh/thành phố thành công",
+  LOCATION_DISTRICTS_SUCCESS: "Lấy danh sách quận/huyện thành công",
+  LOCATION_SCHOOLS_SUCCESS: "Lấy danh sách trường thành công",
+  LOCATION_PROVINCE_CODE_INVALID: "Mã tỉnh/thành phố không hợp lệ",
+  LOCATION_PROVINCE_NOT_FOUND: "Không tìm thấy tỉnh/thành phố",
+
+  // Lookup
+  LOOKUP_LIST_SUCCESS: "Lấy danh sách thành công",
+  LOOKUP_ALL_SUCCESS: "Lấy danh sách lookup thành công",
+  LOOKUP_CREATE_SUCCESS: "Tạo lookup thành công",
+  LOOKUP_UPDATE_SUCCESS: "Cập nhật lookup thành công",
+  LOOKUP_DELETE_SUCCESS: "Xóa lookup thành công",
+  LOOKUP_CREATE_MANY_SUCCESS: "Tạo danh sách lookup thành công",
+  LOOKUP_DELETE_TYPE_SUCCESS: "Xóa nhóm lookup thành công",
+  LOOKUP_NOT_FOUND: "Không tìm thấy lookup",
+  LOOKUP_ALREADY_EXISTS: "Giá trị lookup đã tồn tại",
+
+  // Notification
+  NOTIFICATION_LIST_SUCCESS: "Lấy danh sách thông báo thành công",
+  NOTIFICATION_MARK_READ_SUCCESS: "Đã đánh dấu đã đọc",
+  NOTIFICATION_MARK_ALL_READ_SUCCESS: "Đã đánh dấu tất cả đã đọc",
+  NOTIFICATION_NOT_FOUND: "Không tìm thấy thông báo",
+
+  // Settings (footer)
+  SETTINGS_FOOTER_GET_SUCCESS: "Lấy thông tin chân trang thành công",
+  SETTINGS_FOOTER_UPDATE_SUCCESS: "Cập nhật thông tin chân trang thành công",
+  SETTINGS_FOOTER_REQUIRED: "Địa chỉ, số điện thoại và email là bắt buộc",
+
+  // Chat (người dùng ↔ admin)
+  CHAT_GET_CONVERSATION_SUCCESS: "Lấy cuộc trò chuyện thành công",
+  CHAT_MESSAGE_SENT: "Đã gửi tin nhắn",
+  CHAT_MARK_READ_SUCCESS: "Đã đánh dấu đã đọc",
+  CHAT_UNREAD_COUNT_SUCCESS: "Lấy số tin chưa đọc thành công",
+  CHAT_CONVERSATIONS_SUCCESS: "Lấy danh sách hội thoại thành công",
+  CHAT_MESSAGES_SUCCESS: "Lấy tin nhắn thành công",
+  CHAT_CONVERSATION_OPENED: "Đã mở cuộc trò chuyện",
+  CHAT_CONTENT_OR_IMAGE_REQUIRED: "Vui lòng nhập nội dung hoặc đính kèm ảnh",
+  CHAT_CONVERSATION_NOT_FOUND: "Không tìm thấy cuộc trò chuyện",
+  CHAT_CANNOT_MESSAGE_ADMIN: "Không thể nhắn tin với quản trị viên",
+
+  // Chatbot (proxy trợ lý ảo)
+  CHATBOT_ANSWER_SUCCESS: "Trả lời thành công",
+  CHATBOT_RATE_LIMITED: "Bạn gửi câu hỏi hơi nhanh, vui lòng thử lại sau ít phút.",
+
+  // Auth (bổ sung)
+  ACCOUNT_DEACTIVATED: "Tài khoản của bạn đã bị vô hiệu hóa",
+  LOGIN_RATE_LIMITED: "Bạn đã đăng nhập sai quá nhiều lần, vui lòng thử lại sau ít phút.",
+
+  // Notification content — nội dung thông báo tĩnh
+  NOTIF_TUTOR_PENDING: "Hồ sơ gia sư của bạn đang chờ xét duyệt. Chúng tôi sẽ thông báo khi có kết quả.",
+  NOTIF_TUTOR_APPROVED:
+    "Chúc mừng! Hồ sơ gia sư của bạn đã được phê duyệt. Bạn chính thức trở thành gia sư.",
+  NOTIF_REVIEW_REPLIED: "Gia sư đã phản hồi đánh giá của bạn. Xem phản hồi trong trang chi tiết gia sư.",
 };
 
 module.exports = MESSAGE;

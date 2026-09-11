@@ -2,28 +2,69 @@ const userRepository = require("../repositories/user.repository");
 const otpRepository = require("../repositories/otp.repository");
 const pendingRegistrationRepository = require("../repositories/pendingRegistration.repository");
 const { hashPassword, comparePassword } = require("../utils/hash");
-const { generateAccessToken, generateRefreshToken, verifyRefreshToken, generateResetToken, verifyResetToken } = require("../utils/token");
-const { generateOtp, getOtpExpiry, isResendTooSoon, getResendWaitSeconds, OTP_EXPIRES_MINUTES } = require("../utils/otp");
+const {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  generateResetToken,
+  verifyResetToken,
+  isResetTokenCurrent,
+} = require("../utils/token");
+const {
+  generateOtp,
+  hashOtp,
+  matchesOtp,
+  getOtpExpiry,
+  isResendTooSoon,
+  getResendWaitSeconds,
+  OTP_EXPIRES_MINUTES,
+  MAX_OTP_ATTEMPTS,
+} = require("../utils/otp");
 const { sendOtpEmail, sendForgotPasswordOtpEmail } = require("../utils/email");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
 const ACCOUNT_TYPE = require("../constants/accountType");
 const OTP_TYPE = require("../constants/otpType");
+const ROLES = require("../constants/role");
 const AppError = require("../utils/AppError");
 const { UserMapper } = require("../mappers");
 const { OAuth2Client } = require("google-auth-library");
 
-// Xác thực ID token (credential) từ nút <GoogleLogin> mặc định của Google Identity Services.
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// Client ID verify Google ID token phải trùng client ID FE dùng phát token;
+// tách khỏi GOOGLE_CLIENT_ID (Gmail API), fallback về GOOGLE_CLIENT_ID cho cấu hình cũ.
+const GOOGLE_LOGIN_CLIENT_ID = process.env.GOOGLE_LOGIN_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+const googleClient = new OAuth2Client(GOOGLE_LOGIN_CLIENT_ID);
 
-const _issueTokens = async (user) => {
+// Cấp access token + refresh token và lưu refresh token cho người dùng
+// `device` là dữ liệu thuần do controller trích từ request HTTP.
+const _issueTokens = async (user, device = {}) => {
   const payload = { id: user._id, email: user.email, role: user.role };
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
-  await userRepository.updateRefreshToken(user._id, refreshToken);
+  await userRepository.addSession(user._id, {
+    token: refreshToken,
+    ...device,
+  });
   return { accessToken, refreshToken };
 };
 
+// Kiểm tra OTP nhập vào; sai thì đếm số lần, vượt MAX_OTP_ATTEMPTS thì vô hiệu OTP (chống brute-force).
+const _assertAndConsumeOtp = async (otpDoc, otp, { email, type }) => {
+  if (matchesOtp(otpDoc.otp, otp, { email, type })) {
+    const result = await otpRepository.deleteById(otpDoc._id);
+    if (result.deletedCount === 1) return;
+    throw new AppError(MESSAGE.OTP_EXPIRED, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const attempts = await otpRepository.incrementAttempts(otpDoc._id);
+  if (attempts >= MAX_OTP_ATTEMPTS) {
+    await otpRepository.deleteByEmailAndType(email, type);
+    throw new AppError(MESSAGE.OTP_TOO_MANY_ATTEMPTS, HTTP_STATUS.TOO_MANY_REQUESTS);
+  }
+  throw new AppError(MESSAGE.OTP_INVALID, HTTP_STATUS.BAD_REQUEST);
+};
+
+// Tạo OTP mới và gửi qua email (đăng ký hoặc quên mật khẩu)
 const _createAndSendOtp = async ({ email, fullName, type }) => {
   const existingOtp = await otpRepository.findLatestActiveByEmailAndType(email, type);
 
@@ -35,18 +76,29 @@ const _createAndSendOtp = async ({ email, fullName, type }) => {
   const otp = generateOtp();
   const expiresAt = getOtpExpiry();
 
-  await otpRepository.create({ email, otp, type, expiresAt });
+  const otpDoc = await otpRepository.create({
+    email,
+    otp: hashOtp(otp, { email, type }),
+    type,
+    expiresAt,
+  });
 
-  if (type === OTP_TYPE.FORGOT_PASSWORD) {
-    await sendForgotPasswordOtpEmail({ to: email, fullName, otp, expiresInMinutes: OTP_EXPIRES_MINUTES });
-  } else {
-    await sendOtpEmail({ to: email, fullName, otp, expiresInMinutes: OTP_EXPIRES_MINUTES });
+  try {
+    if (type === OTP_TYPE.FORGOT_PASSWORD) {
+      await sendForgotPasswordOtpEmail({ to: email, fullName, otp, expiresInMinutes: OTP_EXPIRES_MINUTES });
+    } else {
+      await sendOtpEmail({ to: email, fullName, otp, expiresInMinutes: OTP_EXPIRES_MINUTES });
+    }
+  } catch (error) {
+    await otpRepository.deleteById(otpDoc._id);
+    throw error;
   }
 };
 
 // ─── REGISTER ───
 
-const register = async ({ fullName, email, password, role, phone, dateOfBirth }) => {
+// Đăng ký tài khoản mới: lưu tạm thông tin và gửi OTP xác thực
+const register = async ({ fullName, email, password, phone, dateOfBirth }) => {
   const existingUser = await userRepository.findByEmail(email);
 
   if (existingUser) {
@@ -69,7 +121,7 @@ const register = async ({ fullName, email, password, role, phone, dateOfBirth })
     fullName,
     email,
     password: hashedPassword,
-    role,
+    role: ROLES.USER,
     phone,
     dateOfBirth,
   });
@@ -81,7 +133,8 @@ const register = async ({ fullName, email, password, role, phone, dateOfBirth })
 
 // ─── VERIFY OTP ───
 
-const verifyOtp = async ({ email, otp, type = OTP_TYPE.REGISTER }) => {
+// Xác thực OTP đăng ký: tạo tài khoản trong DB và cấp token
+const verifyOtp = async ({ email, otp, type = OTP_TYPE.REGISTER }, device) => {
   // Đã có tài khoản đã xác thực với email này → không cho xác thực lại
   const existingUser = await userRepository.findByEmail(email);
   if (existingUser && existingUser.isVerified) {
@@ -100,16 +153,14 @@ const verifyOtp = async ({ email, otp, type = OTP_TYPE.REGISTER }) => {
     throw new AppError(MESSAGE.OTP_EXPIRED, HTTP_STATUS.BAD_REQUEST);
   }
 
-  if (otpDoc.otp !== otp) {
-    throw new AppError(MESSAGE.OTP_INVALID, HTTP_STATUS.BAD_REQUEST);
-  }
+  await _assertAndConsumeOtp(otpDoc, otp, { email, type });
 
   // OTP hợp lệ → giờ mới ghi tài khoản vào DB (đã kích hoạt sẵn)
   const user = await userRepository.create({
     fullName: pending.fullName,
     email: pending.email,
     password: pending.password,
-    role: pending.role,
+    role: ROLES.USER,
     phone: pending.phone,
     dateOfBirth: pending.dateOfBirth,
     type: ACCOUNT_TYPE.LOCAL,
@@ -123,12 +174,13 @@ const verifyOtp = async ({ email, otp, type = OTP_TYPE.REGISTER }) => {
     otpRepository.deleteByEmailAndType(email, type),
   ]);
 
-  const { accessToken, refreshToken } = await _issueTokens(user);
+  const { accessToken, refreshToken } = await _issueTokens(user, device);
   return { accessToken, refreshToken, user: UserMapper.toDTO(user) };
 };
 
 // ─── RESEND OTP ───
 
+// Gửi lại mã OTP (đăng ký hoặc quên mật khẩu)
 const resendOtp = async ({ email, type = OTP_TYPE.REGISTER }) => {
   if (type === OTP_TYPE.REGISTER) {
     // Dữ liệu đăng ký nằm ở bảng tạm, chưa có trong users
@@ -142,7 +194,7 @@ const resendOtp = async ({ email, type = OTP_TYPE.REGISTER }) => {
       fullName: pending.fullName,
       email: pending.email,
       password: pending.password,
-      role: pending.role,
+      role: ROLES.USER,
       phone: pending.phone,
       dateOfBirth: pending.dateOfBirth,
     });
@@ -163,49 +215,68 @@ const resendOtp = async ({ email, type = OTP_TYPE.REGISTER }) => {
 
 // ─── FORGOT PASSWORD ───
 
+// Gửi OTP đặt lại mật khẩu về email (không tiết lộ email có tồn tại hay không)
 const forgotPassword = async ({ email }) => {
   const user = await userRepository.findByEmail(email);
 
-  // Không tiết lộ email có tồn tại hay không (bảo mật)
-  if (!user || !user.isVerified) return { email };
-
-  // Chỉ cho phép đặt lại mật khẩu cho tài khoản sử dụng mật khẩu (local)
-  if (user.type === ACCOUNT_TYPE.GOOGLE) {
-    throw new AppError(MESSAGE.ACCOUNT_NOT_CHANGE_PASSWORD, HTTP_STATUS.BAD_REQUEST);
+  // Mọi email đều nhận cùng response; chỉ tài khoản local hợp lệ mới được gửi OTP.
+  if (
+    user &&
+    user.isVerified &&
+    user.isActive !== false &&
+    !user.deletedAt &&
+    user.type === ACCOUNT_TYPE.LOCAL
+  ) {
+    try {
+      await _createAndSendOtp({ email, fullName: user.fullName, type: OTP_TYPE.FORGOT_PASSWORD });
+    } catch (error) {
+      // Không để cooldown/lỗi gửi mail trở thành tín hiệu xác nhận email có tài khoản.
+      if (!error.isUserError) console.error("[PASSWORD RECOVERY] Không thể gửi OTP", error);
+    }
   }
-
-  await _createAndSendOtp({ email, fullName: user.fullName, type: OTP_TYPE.FORGOT_PASSWORD });
 
   return { email };
 };
 
 // ─── VERIFY FORGOT PASSWORD OTP ───
 
+// Xác thực OTP quên mật khẩu và cấp reset token
 const verifyForgotPasswordOtp = async ({ email, otp }) => {
-  const user = await userRepository.findByEmail(email);
-  if (!user || !user.isVerified) {
-    throw new AppError(MESSAGE.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  const [user, otpDoc] = await Promise.all([
+    userRepository.findByEmail(email, true),
+    otpRepository.findLatestActiveByEmailAndType(email, OTP_TYPE.FORGOT_PASSWORD),
+  ]);
+  const canReset =
+    user &&
+    user.isVerified &&
+    user.isActive !== false &&
+    !user.deletedAt &&
+    user.type === ACCOUNT_TYPE.LOCAL &&
+    typeof user.password === "string" &&
+    user.password;
+
+  if (!canReset || !otpDoc) {
+    throw new AppError(MESSAGE.OTP_INVALID, HTTP_STATUS.BAD_REQUEST);
   }
 
-  const otpDoc = await otpRepository.findLatestActiveByEmailAndType(email, OTP_TYPE.FORGOT_PASSWORD);
-  if (!otpDoc) {
-    throw new AppError(MESSAGE.OTP_EXPIRED, HTTP_STATUS.BAD_REQUEST);
-  }
-
-  if (otpDoc.otp !== otp) {
+  try {
+    await _assertAndConsumeOtp(otpDoc, otp, { email, type: OTP_TYPE.FORGOT_PASSWORD });
+  } catch (error) {
+    if (!error.isUserError) throw error;
     throw new AppError(MESSAGE.OTP_INVALID, HTTP_STATUS.BAD_REQUEST);
   }
 
   // OTP hợp lệ → xóa và cấp resetToken
   await otpRepository.deleteByEmailAndType(email, OTP_TYPE.FORGOT_PASSWORD);
 
-  const resetToken = generateResetToken({ id: user._id, email: user.email });
+  const resetToken = generateResetToken({ id: user._id, email: user.email }, user.password);
 
   return { resetToken };
 };
 
 // ─── RESET PASSWORD ───
 
+// Đặt lại mật khẩu mới bằng reset token
 const resetPassword = async ({ resetToken, newPassword }) => {
   let decoded;
   try {
@@ -215,21 +286,31 @@ const resetPassword = async ({ resetToken, newPassword }) => {
   }
 
   const user = await userRepository.findById(decoded.id, true);
-  if (!user) {
-    throw new AppError(MESSAGE.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  if (
+    !user ||
+    user.isActive === false ||
+    user.type !== ACCOUNT_TYPE.LOCAL ||
+    typeof user.password !== "string" ||
+    !isResetTokenCurrent(decoded, user.password)
+  ) {
+    throw new AppError(MESSAGE.RESET_TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
   }
 
-  if (typeof user.password === "string" && await comparePassword(newPassword, user.password)) {
+  if (await comparePassword(newPassword, user.password)) {
     throw new AppError(MESSAGE.RESET_PASSWORD_SAME_AS_OLD, HTTP_STATUS.BAD_REQUEST);
   }
 
   const hashedPassword = await hashPassword(newPassword);
-  await userRepository.updatePassword(user._id, hashedPassword);
+  const updated = await userRepository.resetPasswordIfCurrent(user._id, user.password, hashedPassword);
+  if (!updated) {
+    throw new AppError(MESSAGE.RESET_TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
+  }
 };
 
 // ─── LOGIN ───
 
-const login = async ({ email, password }) => {
+// Đăng nhập bằng email/mật khẩu và cấp token
+const login = async ({ email, password }, device) => {
   const user = await userRepository.findByEmail(email, true);
   if (!user) {
     throw new AppError(MESSAGE.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
@@ -240,7 +321,7 @@ const login = async ({ email, password }) => {
   }
 
   if (!user.isActive) {
-    throw new AppError("Tài khoản của bạn đã bị vô hiệu hóa", HTTP_STATUS.FORBIDDEN);
+    throw new AppError(MESSAGE.ACCOUNT_DEACTIVATED, HTTP_STATUS.FORBIDDEN);
   }
 
   // Tài khoản Google: không có hash mật khẩu — tránh gọi bcrypt (sẽ lỗi Illegal arguments: string, object)
@@ -257,18 +338,22 @@ const login = async ({ email, password }) => {
     throw new AppError(MESSAGE.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
   }
 
-  const { accessToken, refreshToken } = await _issueTokens(user);
+  const { accessToken, refreshToken } = await _issueTokens(user, device);
   return { accessToken, refreshToken, user: UserMapper.toDTO(user) };
 };
 
 // ─── LOGOUT ───
 
-const logout = async (userId) => {
-  await userRepository.updateRefreshToken(userId, null);
+// Đăng xuất: chỉ đóng phiên của THIẾT BỊ đang gọi, các máy khác vẫn đăng nhập.
+// Không có token (cookie đã mất) thì đóng hết cho chắc — tránh phiên mồ côi không ai gỡ được.
+const logout = async (userId, token) => {
+  if (token) await userRepository.removeSessionByToken(userId, token);
+  else await userRepository.removeSessions(userId);
 };
 
 // ─── REFRESH TOKEN ───
 
+// Cấp lại access token mới từ refresh token hợp lệ
 const refreshToken = async (token) => {
   if (!token) {
     throw new AppError(MESSAGE.REFRESH_TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
@@ -280,35 +365,48 @@ const refreshToken = async (token) => {
     throw new AppError(MESSAGE.TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
   }
 
-  const user = await userRepository.findByRefreshToken(token);
+  // Token không còn trong phiên nào → phiên đã bị thu hồi từ thiết bị khác.
+  const user = await userRepository.findBySessionToken(token);
   if (!user) {
     throw new AppError(MESSAGE.REFRESH_TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
   }
 
-  const { accessToken, refreshToken: newRefreshToken } = await _issueTokens(user);
+  // Xoay token TẠI CHỖ trong phiên hiện có — không mở phiên mới, nếu không mỗi lần
+  // gia hạn lại đẻ thêm một dòng "thiết bị" giả trong danh sách.
+  const payload = { id: user._id, email: user.email, role: user.role };
+  const accessToken = generateAccessToken(payload);
+  const newRefreshToken = generateRefreshToken(payload);
+  const rotated = await userRepository.rotateSessionToken(user._id, token, newRefreshToken);
+  if (rotated.modifiedCount !== 1) {
+    throw new AppError(MESSAGE.REFRESH_TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
+  }
+
   return { accessToken, refreshToken: newRefreshToken };
 };
 
 // ─── GOOGLE LOGIN ───
 
-const googleLogin = async ({ credential }) => {
+// Đăng nhập/đăng ký bằng Google: xác thực credential và cấp token
+const googleLogin = async ({ credential }, device) => {
   let payload;
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: GOOGLE_LOGIN_CLIENT_ID,
     });
     payload = ticket.getPayload();
   } catch {
     throw new AppError(MESSAGE.GOOGLE_TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
   }
 
-  const { email, name, picture } = payload || {};
-  if (!email) {
+  const { email, email_verified: emailVerified, name, given_name: givenName, family_name: familyName, picture } =
+    payload || {};
+  if (typeof email !== "string" || !email.trim() || emailVerified !== true) {
     throw new AppError(MESSAGE.GOOGLE_TOKEN_INVALID, HTTP_STATUS.UNAUTHORIZED);
   }
+  const normalizedEmail = email.trim().toLowerCase();
 
-  const existingUser = await userRepository.findByEmail(email);
+  const existingUser = await userRepository.findByEmail(normalizedEmail);
 
   if (existingUser) {
     if (existingUser.type === ACCOUNT_TYPE.LOCAL) {
@@ -316,22 +414,27 @@ const googleLogin = async ({ credential }) => {
     }
 
     if (!existingUser.isActive) {
-      throw new AppError("Tài khoản của bạn đã bị vô hiệu hóa", HTTP_STATUS.FORBIDDEN);
+      throw new AppError(MESSAGE.ACCOUNT_DEACTIVATED, HTTP_STATUS.FORBIDDEN);
     }
 
-    const { accessToken, refreshToken } = await _issueTokens(existingUser);
+    const { accessToken, refreshToken } = await _issueTokens(existingUser, device);
     return { accessToken, refreshToken, user: UserMapper.toDTO(existingUser) };
   }
 
+  const nameCandidates = [name, [givenName, familyName].filter(Boolean).join(" "), normalizedEmail.split("@")[0]];
+  const fullName =
+    nameCandidates.map((value) => String(value || "").trim()).find((value) => value.length >= 2)?.slice(0, 100) ||
+    "Người dùng Google";
+
   const newUser = await userRepository.create({
-    fullName: name,
-    email,
+    fullName,
+    email: normalizedEmail,
     avatar: picture,
     type: ACCOUNT_TYPE.GOOGLE,
     isVerified: true,
   });
 
-  const { accessToken, refreshToken } = await _issueTokens(newUser);
+  const { accessToken, refreshToken } = await _issueTokens(newUser, device);
   return { accessToken, refreshToken, user: UserMapper.toDTO(newUser) };
 };
 

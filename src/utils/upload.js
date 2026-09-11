@@ -3,6 +3,7 @@ const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("../configs/cloudinary");
 const AppError = require("./AppError");
 
+// Cấu hình lưu ảnh đại diện lên Cloudinary (giới hạn 500x500)
 const avatarStorage = new CloudinaryStorage({
   cloudinary,
   params: (req, file) => ({
@@ -17,6 +18,7 @@ const avatarStorage = new CloudinaryStorage({
   }),
 });
 
+// Chỉ cho phép upload file ảnh (JPG/PNG/GIF/WEBP)
 const fileFilter = (_req, file, cb) => {
   const allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
   if (allowed.includes(file.mimetype)) {
@@ -26,14 +28,14 @@ const fileFilter = (_req, file, cb) => {
   }
 };
 
+// Middleware upload ảnh đại diện (tối đa 5MB)
 const uploadAvatarMiddleware = multer({
   storage: avatarStorage,
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
 }).single("avatar");
 
-// Ảnh giấy tờ xác thực gia sư (CCCD/bằng cấp). Giữ độ phân giải cao hơn avatar để admin
-// đọc rõ thông tin; không crop vuông.
+// Cấu hình lưu ảnh giấy tờ xác thực gia sư lên Cloudinary (độ phân giải cao, không crop)
 const documentStorage = new CloudinaryStorage({
   cloudinary,
   params: (req, file) => ({
@@ -48,13 +50,14 @@ const documentStorage = new CloudinaryStorage({
   }),
 });
 
+// Middleware upload ảnh giấy tờ (tối đa 8MB)
 const uploadDocumentMiddleware = multer({
   storage: documentStorage,
   fileFilter,
   limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB
 }).single("document");
 
-// Ảnh đính kèm trong tin nhắn chat (gia sư ↔ admin).
+// Cấu hình lưu ảnh đính kèm trong chat lên Cloudinary
 const chatImageStorage = new CloudinaryStorage({
   cloudinary,
   params: (req, file) => ({
@@ -69,29 +72,40 @@ const chatImageStorage = new CloudinaryStorage({
   }),
 });
 
+// Middleware upload ảnh trong chat (tối đa 5MB)
 const uploadChatImageMiddleware = multer({
   storage: chatImageStorage,
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
 }).single("image");
 
-// Tách public_id từ URL Cloudinary để gọi destroy.
-// URL dạng: https://res.cloudinary.com/<cloud>/image/upload/v123/webtutorcenter/avatars/avatar_xxx.jpg
-const extractCloudinaryPublicId = (url) => {
-  if (!url || !url.includes("cloudinary.com")) return null;
-  const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z]+$/);
-  return match ? match[1] : null;
+// Tách public_id + delivery type từ URL public hoặc signed/authenticated để gọi destroy.
+const extractCloudinaryAsset = (url) => {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (_error) {
+    return null;
+  }
+  if (parsed.protocol !== "https:" || parsed.hostname !== "res.cloudinary.com") return null;
+
+  const match = parsed.pathname.match(
+    /\/image\/(upload|authenticated|private)\/(?:s--[^/]+--\/)?(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+$/
+  );
+  return match ? { type: match[1], publicId: match[2] } : null;
 };
 
-// Xóa 1 ảnh trên Cloudinary theo URL. Bỏ qua URL rỗng hoặc không phải Cloudinary
-// (vd avatar lấy từ Google). Lỗi chỉ log, không ném ra để không chặn luồng chính.
+// Xoá một ảnh trên Cloudinary theo URL (bỏ qua URL không phải Cloudinary; lỗi chỉ log)
 const deleteImageFromCloudinary = async (url) => {
-  const publicId = extractCloudinaryPublicId(url);
-  if (!publicId) return;
+  const asset = extractCloudinaryAsset(url);
+  if (!asset) return;
   try {
-    await cloudinary.uploader.destroy(publicId);
+    await cloudinary.uploader.destroy(asset.publicId, {
+      resource_type: "image",
+      type: asset.type,
+    });
   } catch (err) {
-    console.error("Delete Cloudinary image failed:", publicId, err.message);
+    console.error("Delete Cloudinary image failed:", err.name || "unknown");
   }
 };
 
@@ -107,6 +121,7 @@ module.exports = {
   uploadChatImageMiddleware,
   deleteImageFromCloudinary,
   deleteImagesFromCloudinary,
+  extractCloudinaryAsset,
   // Giữ tên cũ cho luồng đổi avatar (alias của deleteImageFromCloudinary).
   deleteAvatarFromCloudinary: deleteImageFromCloudinary,
 };

@@ -1,15 +1,8 @@
 const subjectService = require("../services/subject.service");
 const { successResponse } = require("../utils/response");
-const AppError = require("../utils/AppError");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
 
-const handleError = (error, res, next) => {
-  if (error instanceof AppError) {
-    return res.status(error.statusCode).json({ success: false, message: error.message });
-  }
-  next(error);
-};
 
 // Public: danh sách tên môn đang bật (cho các form chọn môn).
 const getActiveSubjects = async (req, res, next) => {
@@ -21,7 +14,7 @@ const getActiveSubjects = async (req, res, next) => {
       data: { subjects },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
@@ -35,10 +28,11 @@ const getAdminSubjects = async (req, res, next) => {
       data: { subjects },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Tạo môn học mới
 const createSubject = async (req, res, next) => {
   try {
     const subject = await subjectService.createSubject(req.body);
@@ -48,10 +42,11 @@ const createSubject = async (req, res, next) => {
       data: { subject },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Cập nhật môn học (tên, trạng thái, thứ tự)
 const updateSubject = async (req, res, next) => {
   try {
     const subject = await subjectService.updateSubject(req.params.id, req.body);
@@ -61,7 +56,7 @@ const updateSubject = async (req, res, next) => {
       data: { subject },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 

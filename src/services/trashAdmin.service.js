@@ -1,4 +1,5 @@
 const userRepository = require("../repositories/user.repository");
+const MESSAGE = require("../constants/message");
 const tutorRepository = require("../repositories/tutor.repository");
 const classRepository = require("../repositories/class.repository");
 const promoRepository = require("../repositories/promo.repository");
@@ -11,11 +12,13 @@ const profileChangeRequestRepository = require("../repositories/profileChangeReq
 const otpRepository = require("../repositories/otp.repository");
 const pendingRegistrationRepository = require("../repositories/pendingRegistration.repository");
 const reviewService = require("./review.service");
+const { withTransaction } = require("../utils/transaction");
 const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const { UserMapper, ClassMapper, PromoMapper, ReviewMapper } = require("../mappers");
 const { buildPagination } = require("../utils/pagination");
 const { deleteImagesFromCloudinary } = require("../utils/upload");
+const TRASH_TYPES = require("../constants/trash");
 
 // Xóa vĩnh viễn TẤT CẢ dữ liệu của một tài khoản khỏi DB + ảnh trên Cloudinary.
 // Chỉ chạy khi xóa vĩnh viễn (purge). Xóa mềm KHÔNG đụng tới để còn khôi phục/backup.
@@ -79,7 +82,7 @@ const purgeUserData = async (user) => {
 
 // Đăng ký xử lý cho từng loại dữ liệu có thể nằm trong thùng rác
 const TRASH_ENTITIES = {
-  users: {
+  [TRASH_TYPES.USERS]: {
     label: "Người dùng",
     list: async ({ page, limit }) => {
       const { users, totalItems } = await userRepository.findDeleted({ page, limit });
@@ -93,7 +96,7 @@ const TRASH_ENTITIES = {
       return purged;
     },
   },
-  classes: {
+  [TRASH_TYPES.CLASSES]: {
     label: "Bài đăng",
     list: async ({ page, limit }) => {
       const { classes, totalItems } = await classRepository.findDeleted({ page, limit });
@@ -107,7 +110,7 @@ const TRASH_ENTITIES = {
       return purged;
     },
   },
-  promos: {
+  [TRASH_TYPES.PROMOS]: {
     label: "Mã ưu đãi",
     list: async ({ page, limit }) => {
       const { items, totalItems } = await promoRepository.findDeleted({ page, limit });
@@ -116,7 +119,7 @@ const TRASH_ENTITIES = {
     restore: (id) => promoRepository.restore(id),
     purge: (id) => promoRepository.deleteById(id),
   },
-  reviews: {
+  [TRASH_TYPES.REVIEWS]: {
     label: "Đánh giá",
     list: async ({ page, limit }) => {
       const { items, totalItems } = await reviewRepository.findDeleted({ page, limit });
@@ -124,24 +127,36 @@ const TRASH_ENTITIES = {
     },
     // Khôi phục đánh giá → tính lại điểm trung bình của gia sư
     restore: async (id) => {
-      const restored = await reviewRepository.restore(id);
-      if (restored) await reviewService.recomputeTutorRating(restored.tutorId);
-      return restored;
+      try {
+        return await withTransaction(async (session) => {
+          const restored = await reviewRepository.restore(id, { session });
+          if (restored) {
+            await reviewService.recomputeTutorRating(restored.tutorId, { session });
+          }
+          return restored;
+        });
+      } catch (error) {
+        if (error?.code === 11000) {
+          throw new AppError(MESSAGE.REVIEW_ALREADY_EXISTS, HTTP_STATUS.CONFLICT);
+        }
+        throw error;
+      }
     },
     purge: (id) => reviewRepository.deleteById(id),
   },
 };
 
+// Lấy cấu hình xử lý theo loại dữ liệu trong thùng rác
 const getTrashEntity = (type) => {
   const entity = TRASH_ENTITIES[type];
-  if (!entity) throw new AppError("Loại dữ liệu không hợp lệ", HTTP_STATUS.BAD_REQUEST);
+  if (!entity) throw new AppError(MESSAGE.TRASH_TYPE_INVALID, HTTP_STATUS.BAD_REQUEST);
   return entity;
 };
 
+// Lấy danh sách mục trong thùng rác theo loại (phân trang)
 const getTrashItems = async (type, query = {}) => {
   const entity = getTrashEntity(type);
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 10;
+  const { page = 1, limit = 10 } = query;
   const { items, totalItems } = await entity.list({ page, limit });
   return {
     type,
@@ -150,20 +165,23 @@ const getTrashItems = async (type, query = {}) => {
   };
 };
 
+// Khôi phục một mục từ thùng rác
 const restoreTrashItem = async (type, id) => {
   const entity = getTrashEntity(type);
   const restored = await entity.restore(id);
-  if (!restored) throw new AppError("Không tìm thấy mục cần khôi phục", HTTP_STATUS.NOT_FOUND);
+  if (!restored) throw new AppError(MESSAGE.TRASH_RESTORE_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   return { id };
 };
 
+// Xoá vĩnh viễn một mục trong thùng rác
 const purgeTrashItem = async (type, id) => {
   const entity = getTrashEntity(type);
   const purged = await entity.purge(id);
-  if (!purged) throw new AppError("Không tìm thấy mục cần xóa", HTTP_STATUS.NOT_FOUND);
+  if (!purged) throw new AppError(MESSAGE.TRASH_PURGE_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   return { id };
 };
 
+// Đếm số mục trong thùng rác theo từng loại
 const getTrashCounts = async () => {
   const [users, classes, promos, reviews] = await Promise.all([
     userRepository.findDeleted({ page: 1, limit: 1 }),

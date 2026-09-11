@@ -1,16 +1,10 @@
 const cancellationAdminService = require("../services/cancellationAdmin.service");
 const { successResponse } = require("../utils/response");
-const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const MESSAGE = require("../constants/message");
 
-const handleError = (error, res, next) => {
-  if (error instanceof AppError) {
-    return res.status(error.statusCode).json({ success: false, message: error.message });
-  }
-  next(error);
-};
 
+// Lấy danh sách yêu cầu huỷ đơn nhận lớp cho admin
 const getApplicationCancellations = async (req, res, next) => {
   try {
     const result = await cancellationAdminService.getApplicationCancellations(req.query);
@@ -20,10 +14,11 @@ const getApplicationCancellations = async (req, res, next) => {
       data: result,
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Duyệt yêu cầu huỷ đơn nhận lớp
 const approveCancellation = async (req, res, next) => {
   try {
     const application = await cancellationAdminService.approveCancellation(req.params.id);
@@ -33,10 +28,11 @@ const approveCancellation = async (req, res, next) => {
       data: { application },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Từ chối yêu cầu huỷ đơn nhận lớp
 const rejectCancellation = async (req, res, next) => {
   try {
     const application = await cancellationAdminService.rejectCancellation(req.params.id, req.body.rejectionReason);
@@ -46,7 +42,7 @@ const rejectCancellation = async (req, res, next) => {
       data: { application },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 

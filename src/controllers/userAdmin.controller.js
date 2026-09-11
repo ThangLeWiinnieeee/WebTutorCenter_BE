@@ -1,16 +1,10 @@
 const userAdminService = require("../services/userAdmin.service");
 const { successResponse } = require("../utils/response");
-const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const MESSAGE = require("../constants/message");
 
-const handleError = (error, res, next) => {
-  if (error instanceof AppError) {
-    return res.status(error.statusCode).json({ success: false, message: error.message });
-  }
-  next(error);
-};
 
+// Lấy danh sách người dùng cho admin
 const getAdminUsers = async (req, res, next) => {
   try {
     const data = await userAdminService.getAdminUsers(req.query);
@@ -20,10 +14,11 @@ const getAdminUsers = async (req, res, next) => {
       data,
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Cập nhật thông tin người dùng (admin)
 const updateAdminUser = async (req, res, next) => {
   try {
     const user = await userAdminService.updateAdminUser(req.user.id, req.params.id, req.body);
@@ -33,10 +28,11 @@ const updateAdminUser = async (req, res, next) => {
       data: { user },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Bật/tắt trạng thái hoạt động của tài khoản người dùng
 const updateAdminUserStatus = async (req, res, next) => {
   try {
     const user = await userAdminService.updateAdminUserStatus(req.user.id, req.params.id, req.body.isActive);
@@ -46,10 +42,11 @@ const updateAdminUserStatus = async (req, res, next) => {
       data: { user },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Xoá mềm tài khoản người dùng
 const softDeleteAdminUser = async (req, res, next) => {
   try {
     const user = await userAdminService.softDeleteAdminUser(req.user.id, req.params.id);
@@ -59,7 +56,7 @@ const softDeleteAdminUser = async (req, res, next) => {
       data: { user },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 

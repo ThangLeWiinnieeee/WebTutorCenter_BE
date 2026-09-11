@@ -1,7 +1,18 @@
 const lookupRepository = require("../repositories/lookup.repository");
+const AppError = require("../utils/AppError");
+const HTTP_STATUS = require("../constants/status");
+const MESSAGE = require("../constants/message");
+const { LookupMapper } = require("../mappers");
+
+const translateDuplicateError = (error) => {
+  if (error?.code === 11000) {
+    throw new AppError(MESSAGE.LOOKUP_ALREADY_EXISTS, HTTP_STATUS.CONFLICT);
+  }
+  throw error;
+};
 
 const lookupService = {
-  // Lấy danh sách values theo type (public)
+  // Lấy danh sách giá trị lookup theo loại (public)
   async getByType(type) {
     const values = await lookupRepository.getValuesByType(type, true);
     if (values.length === 0) {
@@ -16,7 +27,7 @@ const lookupService = {
     }));
   },
 
-  // Lấy districts của province (public)
+  // Lấy danh sách quận/huyện theo tỉnh (public)
   async getDistrictsByProvince(provinceValue) {
     const districts = await lookupRepository.getDistrictsByProvince(provinceValue, true);
     if (districts.length === 0) {
@@ -29,32 +40,54 @@ const lookupService = {
     }));
   },
 
-  // Lấy tất cả lookup data (grouped)
+  // Lấy toàn bộ dữ liệu lookup gom theo nhóm
   async getAllGrouped() {
-    return await lookupRepository.getAllGrouped();
+    const lookups = await lookupRepository.findAllActive();
+    return lookups.reduce((grouped, lookup) => {
+      const dto = LookupMapper.toDTO(lookup);
+      grouped[dto.type] ||= [];
+      grouped[dto.type].push({ value: dto.value, label: dto.label, parentId: dto.parentId });
+      return grouped;
+    }, {});
   },
 
-  // Admin: Create lookup
+  // Tạo một giá trị lookup (admin)
   async createLookup(data) {
-    return await lookupRepository.create(data);
+    try {
+      return LookupMapper.toDTO(await lookupRepository.create(data));
+    } catch (error) {
+      return translateDuplicateError(error);
+    }
   },
 
-  // Admin: Create many lookups
+  // Tạo nhiều giá trị lookup cùng lúc (admin)
   async createManyLookups(data) {
-    return await lookupRepository.createMany(data);
+    try {
+      return LookupMapper.toDTOs(await lookupRepository.createMany(data));
+    } catch (error) {
+      return translateDuplicateError(error);
+    }
   },
 
-  // Admin: Update lookup
+  // Cập nhật một giá trị lookup (admin)
   async updateLookup(id, data) {
-    return await lookupRepository.updateById(id, data);
+    try {
+      const lookup = await lookupRepository.updateById(id, data);
+      if (!lookup) throw new AppError(MESSAGE.LOOKUP_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+      return LookupMapper.toDTO(lookup);
+    } catch (error) {
+      return translateDuplicateError(error);
+    }
   },
 
-  // Admin: Delete lookup
+  // Xoá một giá trị lookup (admin)
   async deleteLookup(id) {
-    return await lookupRepository.deleteById(id);
+    const lookup = await lookupRepository.deleteById(id);
+    if (!lookup) throw new AppError(MESSAGE.LOOKUP_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+    return LookupMapper.toDTO(lookup);
   },
 
-  // Admin: Delete all by type
+  // Xoá toàn bộ giá trị lookup theo loại (admin)
   async deleteByType(type) {
     return await lookupRepository.deleteByType(type);
   },

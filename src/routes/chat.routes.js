@@ -10,10 +10,12 @@ const {
   validate,
   validateQuery,
   sendMessageSchema,
+  sendCardSchema,
   startConversationSchema,
   messagesQuerySchema,
   conversationsQuerySchema,
 } = require("../validations/chat.validation");
+const { validateObjectIdParams } = require("../validations/common.validation");
 
 router.use(authMiddleware);
 
@@ -68,12 +70,14 @@ router.post(
 router.get(
   "/conversations/:id/messages",
   roleMiddleware(ROLES.ADMIN),
+  validateObjectIdParams("id"),
   validateQuery(messagesQuerySchema),
   chatController.getConversationMessages
 );
 router.post(
   "/conversations/:id/messages",
   roleMiddleware(ROLES.ADMIN),
+  validateObjectIdParams("id"),
   validate(sendMessageSchema),
   chatController.sendConversationMessage
 );
@@ -81,12 +85,22 @@ router.post(
 router.post(
   "/conversations/:id/images",
   roleMiddleware(ROLES.ADMIN),
+  validateObjectIdParams("id"),
   uploadChatImageMiddleware,
   chatController.sendConversationImageMessage
+);
+// Gửi thẻ thông tin gia sư/bài đăng (chỉ admin) — { kind: "tutor"|"class", refId }.
+router.post(
+  "/conversations/:id/card",
+  roleMiddleware(ROLES.ADMIN),
+  validateObjectIdParams("id"),
+  validate(sendCardSchema),
+  chatController.sendConversationCard
 );
 router.post(
   "/conversations/:id/read",
   roleMiddleware(ROLES.ADMIN),
+  validateObjectIdParams("id"),
   chatController.markConversationRead
 );
 

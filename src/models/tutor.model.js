@@ -6,6 +6,7 @@ const {
   PHONE_REGEX,
   TIME_REGEX,
 } = require("../constants/tutor");
+const { CCCD_SUBMITTABLE_DECISIONS } = require("../constants/cccd");
 
 const availabilitySlotSchema = new mongoose.Schema(
   {
@@ -23,6 +24,21 @@ const availabilitySlotSchema = new mongoose.Schema(
       min: [0, "Khung giờ phải từ 0 đến 23"],
       max: [23, "Khung giờ phải từ 0 đến 23"],
     },
+  },
+  { _id: false }
+);
+
+const cccdVerificationSchema = new mongoose.Schema(
+  {
+    decision: { type: String, enum: CCCD_SUBMITTABLE_DECISIONS, required: true },
+    reasons: { type: [String], default: [] },
+    modelVersion: { type: String, default: null },
+    frontOcrConfidence: { type: Number, min: 0, max: 1, default: 0 },
+    backOcrConfidence: { type: Number, min: 0, max: 1, default: 0 },
+    qrDecoded: { type: Boolean, default: false },
+    qrOcrMatch: { type: Boolean, default: null },
+    profileMatch: { type: Boolean, default: null },
+    verifiedAt: { type: Date, required: true },
   },
   { _id: false }
 );
@@ -119,6 +135,11 @@ const tutorSchema = new mongoose.Schema(
       required: [true, "Ảnh CCCD mặt sau là bắt buộc"],
       trim: true,
     },
+    // Kết quả AI được lấy từ biên nhận BE ký, không nhận trực tiếp từ dữ liệu client.
+    cccdVerification: {
+      type: cccdVerificationSchema,
+      default: null,
+    },
     // Ảnh thẻ sinh viên mặt trước / mặt sau — mặt trước bắt buộc khi tình trạng là "sinh viên".
     studentCardFrontImage: {
       type: String,
@@ -137,6 +158,16 @@ const tutorSchema = new mongoose.Schema(
       validate: {
         validator: (arr) => !Array.isArray(arr) || arr.length <= 5,
         message: "Tối đa 5 ảnh bằng cấp",
+      },
+    },
+    // Ảnh bằng cấp CÔNG KHAI (tùy chọn, tối đa 5) — gia sư chủ động cho mọi người xem ở
+    // trang chi tiết & hồ sơ. KHÁC certificateImages (ảnh xác thực, riêng tư). Không bắt buộc.
+    publicCertificateImages: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (arr) => !Array.isArray(arr) || arr.length <= 5,
+        message: "Tối đa 5 ảnh bằng cấp công khai",
       },
     },
     status: {
@@ -185,6 +216,15 @@ const tutorSchema = new mongoose.Schema(
       min: [0, "Điểm đánh giá không thể âm"],
       max: [5, "Điểm đánh giá tối đa là 5"],
     },
+    // Mức độ quan tâm theo môn (tên môn → { s: điểm, t: mốc thời gian cập nhật ms }), cộng dồn
+    // có SUY GIẢM theo thời gian khi gia sư xem/ứng tuyển lớp của môn đó. Dùng để cá nhân hóa
+    // thứ tự feed (môn tương tác nhiều & gần đây lên đầu). Số key = số môn gia sư từng tương tác
+    // nên nhỏ. Mặc định rỗng → gia sư mới rơi về sort theo bài mới nhất. Xem constants SUBJECT_AFFINITY.
+    subjectAffinity: {
+      type: Map,
+      of: new mongoose.Schema({ s: Number, t: Number }, { _id: false }),
+      default: {},
+    },
   },
   {
     timestamps: true,
@@ -208,6 +248,7 @@ tutorSchema.pre("save", function (next) {
   return next(err || undefined);
 });
 
+// Validate cặp (status, rejectionReason) khi cập nhật qua query
 async function validateRejectionReasonOnUpdate(next) {
   const update = this.getUpdate() || {};
   const set = update.$set || update;
@@ -241,6 +282,14 @@ async function validateRejectionReasonOnUpdate(next) {
 }
 
 tutorSchema.pre("findOneAndUpdate", validateRejectionReasonOnUpdate);
+
+// Index cho query nóng nhất: tìm kiếm/lọc gia sư (searchTutors) và top gia sư uy tín
+// (findTrustedTutorIds) — trước đây collection chỉ có unique userId nên mọi filter đều
+// quét toàn bộ. Cả 2 luôn $match theo status trước, rồi lọc theo khu vực / lọc theo đánh giá.
+// ponytail: 2 index đủ cho các filter phổ biến; sort chạy trên field tính động (_reviewCount)
+// nên không dùng được index sort — chấp nhận in-memory sort tới khi số gia sư lên chục nghìn.
+tutorSchema.index({ status: 1, "teachingAreas.province": 1, "teachingAreas.districts": 1 });
+tutorSchema.index({ status: 1, reviewCount: -1, averageRating: -1 });
 
 const Tutor = mongoose.model("Tutor", tutorSchema);
 

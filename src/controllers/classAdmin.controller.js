@@ -1,16 +1,10 @@
 const classAdminService = require("../services/classAdmin.service");
 const { successResponse } = require("../utils/response");
-const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const MESSAGE = require("../constants/message");
 
-const handleError = (error, res, next) => {
-  if (error instanceof AppError) {
-    return res.status(error.statusCode).json({ success: false, message: error.message });
-  }
-  next(error);
-};
 
+// Lấy danh sách lớp học cho admin
 const getAdminClasses = async (req, res, next) => {
   try {
     const data = await classAdminService.getAdminClasses(req.query);
@@ -20,10 +14,11 @@ const getAdminClasses = async (req, res, next) => {
       data,
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Lấy chi tiết một lớp học cho admin
 const getAdminClassDetail = async (req, res, next) => {
   try {
     const classItem = await classAdminService.getAdminClassDetail(req.params.id);
@@ -33,20 +28,21 @@ const getAdminClassDetail = async (req, res, next) => {
       data: { classItem },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Chuyển lớp học vào thùng rác (xoá mềm)
 const deleteAdminClass = async (req, res, next) => {
   try {
     const result = await classAdminService.deleteAdminClass(req.params.id, req.user.id);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
-      message: "Đã chuyển bài đăng vào thùng rác",
+      message: MESSAGE.CLASS_TRASH_SUCCESS,
       data: result,
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 

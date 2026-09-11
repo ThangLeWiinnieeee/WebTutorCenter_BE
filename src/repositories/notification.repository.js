@@ -1,10 +1,7 @@
 const { Notification } = require("../models/notification.model");
 const { NOTIFICATION_AUDIENCE } = require("../constants/notification");
 
-// Ghép điều kiện lọc theo đối tượng nhận (audience).
-// - "admin": chỉ thông báo được gắn nhãn admin.
-// - "client" (mặc định): mọi thông báo KHÔNG phải admin, gồm cả tài liệu cũ chưa có
-//   field audience ($ne "admin" khớp cả giá trị "client" lẫn field thiếu) → không mất dữ liệu cũ.
+// Ghép điều kiện lọc theo đối tượng nhận (admin/client)
 const withAudience = (filter, audience) => {
   if (audience === NOTIFICATION_AUDIENCE.ADMIN) {
     return { ...filter, audience: NOTIFICATION_AUDIENCE.ADMIN };
@@ -15,8 +12,18 @@ const withAudience = (filter, audience) => {
   return filter;
 };
 
-const create = async ({ userId, type, message, audience }) => {
-  return Notification.create({ userId, type, message, audience });
+// Tạo một thông báo mới
+const create = async ({ userId, type, message, audience, eventKey }, { session } = {}) => {
+  const data = { userId, type, message, audience, ...(eventKey ? { eventKey } : {}) };
+  if (eventKey) {
+    return Notification.findOneAndUpdate(
+      { eventKey },
+      { $setOnInsert: data },
+      { new: true, upsert: true, setDefaultsOnInsert: true, session },
+    );
+  }
+  const [notification] = await Notification.create([data], { session });
+  return notification;
 };
 
 // Một trang thông báo của người dùng, mới nhất trước.
@@ -29,14 +36,17 @@ const findByUserIdPage = async ({ userId, page = 1, limit = 10, audience }) => {
     .lean();
 };
 
+// Đếm tổng số thông báo của người dùng
 const countByUserId = async (userId, audience) => {
   return Notification.countDocuments(withAudience({ userId }, audience));
 };
 
+// Đếm số thông báo chưa đọc của người dùng
 const countUnread = async (userId, audience) => {
   return Notification.countDocuments(withAudience({ userId, read: false }, audience));
 };
 
+// Đánh dấu một thông báo là đã đọc
 const markAsRead = async (notificationId, userId) => {
   return Notification.findOneAndUpdate(
     { _id: notificationId, userId },
@@ -45,6 +55,7 @@ const markAsRead = async (notificationId, userId) => {
   ).lean();
 };
 
+// Đánh dấu tất cả thông báo là đã đọc
 const markAllAsRead = async (userId, audience) => {
   const now = new Date();
   return Notification.updateMany(

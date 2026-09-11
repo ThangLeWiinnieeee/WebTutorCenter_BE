@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 
+const sanitizeMongo = require("../middlewares/sanitizeMongo.middleware");
+const paginationGuard = require("../middlewares/paginationGuard.middleware");
+
 const authRoutes = require("./auth.routes");
 const userRoutes = require("./user.routes");
 const tutorRoutes = require("./tutor.routes");
@@ -14,6 +17,15 @@ const settingsRoutes = require("./settings.routes");
 const promoRoutes = require("./promo.routes");
 const reviewRoutes = require("./review.routes");
 const chatRoutes = require("./chat.routes");
+const chatbotRoutes = require("./chatbot.routes");
+const cccdRoutes = require("./cccd.routes");
+const paymentRoutes = require("./payment.routes");
+
+// Làm sạch input (xoá key toán tử Mongo "$"/"." ) cho mọi route /api -> chống NoSQL injection
+router.use(sanitizeMongo);
+
+// Ép trần/sàn cho page & limit -> chặn client nạp cả collection qua ?limit khổng lồ
+router.use(paginationGuard);
 
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
@@ -28,5 +40,8 @@ router.use("/settings", settingsRoutes);
 router.use("/promos", promoRoutes);
 router.use("/reviews", reviewRoutes);
 router.use("/chat", chatRoutes);
+router.use("/chatbot", chatbotRoutes);
+router.use("/cccd", cccdRoutes);
+router.use("/payments", paymentRoutes);
 
 module.exports = router;

@@ -10,22 +10,53 @@ const {
   diacriticInsensitiveRegex,
 } = require("../utils/search");
 
+// Tìm hồ sơ gia sư theo id người dùng
 const findByUserId = async (userId) => {
   return await Tutor.findOne({ userId });
 };
 
-const findById = async (id) => {
-  return await Tutor.findById(id).populate("userId", POPULATE_USER);
+// Tìm hồ sơ gia sư theo id (kèm thông tin người dùng)
+const findById = async (id, { session } = {}) => {
+  return await Tutor.findById(id).session(session || null).populate("userId", POPULATE_USER);
 };
 
+// Tạo hồ sơ gia sư mới
 const create = async (tutorData) => {
   const tutor = new Tutor(tutorData);
   return await tutor.save();
 };
 
-const update = async (tutorId, updateData) => {
-  return await Tutor.findByIdAndUpdate(tutorId, updateData, { new: true, runValidators: true })
+// Cập nhật hồ sơ gia sư
+const update = async (tutorId, updateData, { session } = {}) => {
+  return await Tutor.findByIdAndUpdate(tutorId, updateData, { new: true, runValidators: true, session })
     .populate("userId", POPULATE_USER);
+};
+
+const transitionStatus = async (tutorId, expectedStatus, updateData, { session } = {}) => {
+  return Tutor.findOneAndUpdate(
+    { _id: tutorId, status: expectedStatus },
+    updateData,
+    { new: true, runValidators: true, session },
+  );
+};
+
+const decrementClassStats = async (tutorId, { session } = {}) => {
+  return Tutor.findByIdAndUpdate(
+    tutorId,
+    [
+      {
+        $set: {
+          totalClassesAccepted: {
+            $max: [0, { $subtract: [{ $ifNull: ["$totalClassesAccepted", 0] }, 1] }],
+          },
+          classesAcceptedThisMonth: {
+            $max: [0, { $subtract: [{ $ifNull: ["$classesAcceptedThisMonth", 0] }, 1] }],
+          },
+        },
+      },
+    ],
+    { new: true, session },
+  );
 };
 
 // Một trang hồ sơ gia sư đang chờ duyệt, mới nhất trước.
@@ -38,6 +69,7 @@ const findPendingPage = async ({ page = 1, limit = 10 }) => {
     .limit(limit);
 };
 
+// Đếm số gia sư theo trạng thái
 const countByStatus = async (status) => {
   return await Tutor.countDocuments({ status });
 };
@@ -86,13 +118,10 @@ const findNewTutors = async (days = 7, limit = 10) => {
     .limit(limit);
 };
 
-// Top gia sư uy tín: xếp hạng bằng điểm Bayesian (IMDb) để cân bằng giữa SỐ LƯỢNG
-// đánh giá và ĐIỂM trung bình — tránh việc 1 đánh giá 5 sao vượt mặt người có nhiều
-// đánh giá điểm cao. Trả về mảng _id của top `limit` gia sư đã duyệt & có đánh giá.
-//   score = (v/(v+m))*R + (m/(v+m))*C
-//   v = reviewCount, R = averageRating, C = điểm trung bình toàn cục, m = hằng số làm mượt
+// Hằng số làm mượt cho công thức Bayesian (score = (v/(v+m))*R + (m/(v+m))*C)
 const TRUSTED_BAYESIAN_M = 5;
 
+// Lấy _id của top gia sư uy tín nhất (xếp hạng bằng điểm Bayesian)
 const findTrustedTutorIds = async (limit = 10) => {
   const baseMatch = { status: TUTOR_STATUS.APPROVED, reviewCount: { $gte: 1 } };
 
@@ -130,11 +159,7 @@ const findTrustedTutorIds = async (limit = 10) => {
   return docs.map((d) => d._id);
 };
 
-// Tìm kiếm & lọc gia sư đã duyệt.
-// Toàn bộ điều kiện lọc (kể cả dữ liệu nằm ở User: tên, giới tính, năm sinh) đều được
-// áp dụng ở tầng DB qua aggregation TRƯỚC khi phân trang & đếm tổng → kết quả và số
-// trang luôn chính xác. (Trước đây gender/yearOfBirth bị lọc sau khi đã skip/limit nên
-// trả về thiếu kết quả và tổng số sai.)
+// Tìm kiếm và lọc gia sư đã duyệt (lọc ở tầng DB trước khi phân trang để tổng số chính xác)
 const searchTutors = async (filters = {}, page = 1, limit = 20) => {
   const safePage = Math.max(1, Number(page) || 1);
   const skip = (safePage - 1) * limit;
@@ -227,8 +252,7 @@ const searchTutors = async (filters = {}, page = 1, limit = 20) => {
   return { tutors, total, page: safePage, limit };
 };
 
-// Danh sách gia sư đã duyệt (kèm tên từ User) cho khu vực admin quản lý đánh giá.
-// Hỗ trợ tìm theo tên + phân trang; sắp xếp theo số lượt đánh giá giảm dần.
+// Lấy danh sách gia sư đã duyệt cho admin quản lý đánh giá (tìm theo tên + phân trang)
 const findApprovedForReviewAdmin = async ({ page = 1, limit = 10, keyword = "" } = {}) => {
   const skip = (Math.max(1, page) - 1) * limit;
   const pipeline = [
@@ -271,12 +295,73 @@ const findApprovedForReviewAdmin = async ({ page = 1, limit = 10, keyword = "" }
   return { items, totalItems };
 };
 
+// --- Điểm quan tâm theo môn với suy giảm theo thời gian (half-life) ---
+// Toàn bộ công thức decay gom ở đây để chỉ có MỘT nguồn: ghi (nextAffinityEntry) và đọc
+// (decayAffinityMap) dùng chung `decay()`.
+const { SUBJECT_AFFINITY } = require("../constants/tutor");
+
+// Điểm còn lại sau khi để `ageMs` mili giây trôi qua: cứ mỗi HALF_LIFE_MS thì giảm còn một nửa.
+const decay = (score, ageMs) =>
+  score * Math.pow(0.5, Math.max(0, ageMs) / SUBJECT_AFFINITY.HALF_LIFE_MS);
+
+// Tính điểm quan tâm mới sau một lần tương tác (suy giảm điểm cũ rồi cộng weight, chặn trần)
+const nextAffinityEntry = (prev, weight, now) => {
+  const decayed = prev ? decay(prev.s, now - prev.t) : 0;
+  return { s: Math.min(SUBJECT_AFFINITY.MAX_SCORE, decayed + weight), t: now };
+};
+
+// Đọc điểm quan tâm theo môn đã suy giảm về hiện tại (bỏ các môn dưới ngưỡng)
+const decayAffinityMap = (subjectAffinity, now = Date.now()) => {
+  const entries =
+    subjectAffinity instanceof Map ? subjectAffinity.entries() : Object.entries(subjectAffinity || {});
+  const result = {};
+  for (const [subject, entry] of entries) {
+    if (!entry) continue;
+    const score = decay(entry.s, now - entry.t);
+    if (score >= SUBJECT_AFFINITY.MIN_SCORE) result[subject] = score;
+  }
+  return result;
+};
+
+// Ghi nhận một lần tương tác của gia sư với một môn (suy giảm điểm cũ trước khi cộng)
+// ponytail: hai lần tương tác đồng thời có thể mất 1 lượt cộng (race) — chấp nhận với dữ liệu telemetry.
+const incrementSubjectAffinity = async (userId, subject, weight, now = Date.now()) => {
+  if (!userId || !subject || !weight || subject.includes(".")) return null;
+  const path = `subjectAffinity.${subject}`;
+  const doc = await Tutor.findOne({ userId }, { [path]: 1 }).lean();
+  const prev = doc?.subjectAffinity?.[subject] || null;
+  return await Tutor.updateOne({ userId }, { $set: { [path]: nextAffinityEntry(prev, weight, now) } });
+};
+
 // Xóa hồ sơ gia sư của một người dùng (xóa vĩnh viễn tài khoản)
 const deleteByUserId = async (userId) => {
   return await Tutor.findOneAndDelete({ userId });
 };
 
+const renameSubject = async (oldName, newName, { session } = {}) => {
+  return Tutor.updateMany(
+    { subjects: oldName },
+    { $set: { "subjects.$[subject]": newName } },
+    { arrayFilters: [{ subject: oldName }], session },
+  );
+};
+
+// Số gia sư MỚI (hồ sơ tạo) theo ngày kể từ `since` — cho biểu đồ thống kê.
+const aggregateCountByDay = async (since) => {
+  return await Tutor.aggregate([
+    { $match: { createdAt: { $gte: since } } },
+    {
+      $group: {
+        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+07:00" } },
+        count: { $sum: 1 },
+      },
+    },
+    { $project: { _id: 0, date: "$_id", count: 1 } },
+  ]);
+};
+
 module.exports = {
+  aggregateCountByDay,
   findByUserId,
   findApprovedForReviewAdmin,
   findTopTutorsThisMonth,
@@ -284,11 +369,17 @@ module.exports = {
   findTrustedTutorIds,
   create,
   update,
+  transitionStatus,
+  decrementClassStats,
   findPendingPage,
   countByStatus,
   findAllApproved,
   findTopTutors,
   findNewTutors,
   searchTutors,
+  incrementSubjectAffinity,
+  decayAffinityMap,
+  nextAffinityEntry,
   deleteByUserId,
+  renameSubject,
 };

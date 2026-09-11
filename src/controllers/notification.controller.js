@@ -1,27 +1,20 @@
 const notificationService = require("../services/notification.service");
 const { successResponse } = require("../utils/response");
-const ROLES = require("../constants/role");
-const { NOTIFICATION_AUDIENCE } = require("../constants/notification");
+const MESSAGE = require("../constants/message");
 
-// Chỉ admin mới được đọc kênh thông báo "admin"; mọi trường hợp khác về kênh "client".
-// Ngăn người dùng thường tự đọc thông báo quản trị qua ?audience=admin.
-const resolveAudience = (req) => {
-  const requested = req.query.audience || req.body?.audience;
-  if (requested === NOTIFICATION_AUDIENCE.ADMIN && req.user.role === ROLES.ADMIN) {
-    return NOTIFICATION_AUDIENCE.ADMIN;
-  }
-  return NOTIFICATION_AUDIENCE.CLIENT;
-};
+const getAudience = (req) =>
+  notificationService.resolveAudience(req.query.audience || req.body?.audience, req.user.role);
 
+// Lấy danh sách thông báo của người dùng
 const getNotifications = async (req, res, next) => {
   try {
-    const audience = resolveAudience(req);
+    const audience = getAudience(req);
     const result = await notificationService.getUserNotifications(req.user.id, {
       ...req.query,
       audience,
     });
     return successResponse(res, {
-      message: "Lấy danh sách thông báo thành công",
+      message: MESSAGE.NOTIFICATION_LIST_SUCCESS,
       data: result,
     });
   } catch (error) {
@@ -29,11 +22,12 @@ const getNotifications = async (req, res, next) => {
   }
 };
 
+// Đánh dấu một thông báo là đã đọc
 const markAsRead = async (req, res, next) => {
   try {
     const notification = await notificationService.markAsRead(req.params.id, req.user.id);
     return successResponse(res, {
-      message: "Đã đánh dấu đã đọc",
+      message: MESSAGE.NOTIFICATION_MARK_READ_SUCCESS,
       data: { notification },
     });
   } catch (error) {
@@ -41,11 +35,12 @@ const markAsRead = async (req, res, next) => {
   }
 };
 
+// Đánh dấu tất cả thông báo là đã đọc
 const markAllAsRead = async (req, res, next) => {
   try {
-    await notificationService.markAllAsRead(req.user.id, resolveAudience(req));
+    await notificationService.markAllAsRead(req.user.id, getAudience(req));
     return successResponse(res, {
-      message: "Đã đánh dấu tất cả đã đọc",
+      message: MESSAGE.NOTIFICATION_MARK_ALL_READ_SUCCESS,
     });
   } catch (error) {
     next(error);

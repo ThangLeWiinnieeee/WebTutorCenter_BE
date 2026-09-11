@@ -1,10 +1,9 @@
-const mongoose = require("mongoose");
 const classService = require("../services/class.service");
 const { successResponse } = require("../utils/response");
-const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const MESSAGE = require("../constants/message");
 
+// Báo giá học phí cho lớp dựa trên tham số đầu vào
 const quoteClass = async (req, res, next) => {
   try {
     const quote = await classService.quoteClass(req.body);
@@ -17,6 +16,7 @@ const quoteClass = async (req, res, next) => {
   }
 };
 
+// Tạo bài đăng tìm gia sư
 const createClass = async (req, res, next) => {
   try {
     const created = await classService.createClass(req.body, req.user.id);
@@ -44,6 +44,7 @@ const createInvite = async (req, res, next) => {
   }
 };
 
+// Lấy danh sách lớp có lọc và phân trang
 const getClasses = async (req, res, next) => {
   try {
     const result = await classService.getClasses(req.query, req.user);
@@ -56,6 +57,7 @@ const getClasses = async (req, res, next) => {
   }
 };
 
+// Lấy danh sách lớp phù hợp cho gia sư (feed)
 const getClassFeed = async (req, res, next) => {
   try {
     const result = await classService.getClassFeedForTutor(req.user.id, req.query);
@@ -68,6 +70,7 @@ const getClassFeed = async (req, res, next) => {
   }
 };
 
+// Lấy danh sách bài đăng lớp của người dùng hiện tại
 const getMyPosts = async (req, res, next) => {
   try {
     const result = await classService.getMyPostedClasses(req.user.id, req.query);
@@ -80,13 +83,10 @@ const getMyPosts = async (req, res, next) => {
   }
 };
 
+// Lấy chi tiết một lớp
 const getClassDetail = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
-    }
-    const classItem = await classService.getClassById(id, req.user);
+    const classItem = await classService.getClassById(req.params.id, req.user);
     return successResponse(res, {
       message: MESSAGE.DETAIL_SUCCESS,
       data: { classItem },
@@ -96,15 +96,12 @@ const getClassDetail = async (req, res, next) => {
   }
 };
 
+// Cập nhật bài đăng lớp của người đăng
 const updateClass = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
-    }
-    const classItem = await classService.updatePostedClass(id, req.user.id, req.body);
+    const classItem = await classService.updatePostedClass(req.params.id, req.user.id, req.body);
     return successResponse(res, {
-      message: "Cập nhật bài đăng thành công",
+      message: MESSAGE.CLASS_UPDATE_SUCCESS,
       data: { classItem },
     });
   } catch (error) {
@@ -112,15 +109,12 @@ const updateClass = async (req, res, next) => {
   }
 };
 
+// Xoá bài đăng lớp của người đăng
 const deleteClass = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
-    }
-    const result = await classService.deletePostedClass(id, req.user.id);
+    const result = await classService.deletePostedClass(req.params.id, req.user.id);
     return successResponse(res, {
-      message: "Đã xóa bài đăng",
+      message: MESSAGE.CLASS_DELETE_SUCCESS,
       data: result,
     });
   } catch (error) {
@@ -128,15 +122,12 @@ const deleteClass = async (req, res, next) => {
   }
 };
 
+// Xác nhận hoàn thành lớp
 const completeClass = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
-    }
-    const classItem = await classService.confirmClassCompletion(req.user.id, id);
+    const classItem = await classService.confirmClassCompletion(req.user.id, req.params.id);
     return successResponse(res, {
-      message: "Đã xác nhận hoàn thành lớp",
+      message: MESSAGE.CLASS_COMPLETE_SUCCESS,
       data: { classItem },
     });
   } catch (error) {
@@ -144,6 +135,7 @@ const completeClass = async (req, res, next) => {
   }
 };
 
+// Lấy danh sách môn học
 const getSubjects = async (req, res, next) => {
   try {
     const subjects = await classService.getSubjects();
@@ -156,6 +148,7 @@ const getSubjects = async (req, res, next) => {
   }
 };
 
+// Lấy cấu hình bảng giá học phí
 const getPricingConfig = async (req, res, next) => {
   try {
     const pricingConfig = await classService.getPricingConfig();

@@ -1,16 +1,10 @@
 const classApplicationAdminService = require("../services/classApplicationAdmin.service");
 const { successResponse } = require("../utils/response");
-const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const MESSAGE = require("../constants/message");
 
-const handleError = (error, res, next) => {
-  if (error instanceof AppError) {
-    return res.status(error.statusCode).json({ success: false, message: error.message });
-  }
-  next(error);
-};
 
+// Lấy danh sách đơn nhận lớp cho admin
 const getClassApplications = async (req, res, next) => {
   try {
     const result = await classApplicationAdminService.getClassApplications(req.query);
@@ -20,23 +14,25 @@ const getClassApplications = async (req, res, next) => {
       data: result,
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Lấy thống kê đơn nhận lớp
 const getClassApplicationStats = async (req, res, next) => {
   try {
     const stats = await classApplicationAdminService.getClassApplicationStats(req.query);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
-      message: "Lấy thống kê đơn đăng ký thành công",
+      message: MESSAGE.CLASS_APPLICATION_STATS_SUCCESS,
       data: { stats },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Duyệt đơn nhận lớp
 const approveClassApplication = async (req, res, next) => {
   try {
     const application = await classApplicationAdminService.approveClassApplication(req.params.id);
@@ -46,10 +42,11 @@ const approveClassApplication = async (req, res, next) => {
       data: { application },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Từ chối đơn nhận lớp
 const rejectClassApplication = async (req, res, next) => {
   try {
     const application = await classApplicationAdminService.rejectClassApplication(req.params.id, req.body.rejectionReason);
@@ -59,7 +56,7 @@ const rejectClassApplication = async (req, res, next) => {
       data: { application },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 

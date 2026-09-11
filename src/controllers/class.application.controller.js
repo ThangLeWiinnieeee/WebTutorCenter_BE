@@ -1,16 +1,10 @@
 const classApplicationService = require("../services/class.application.service");
 const { successResponse } = require("../utils/response");
-const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
 const MESSAGE = require("../constants/message");
 
-const handleError = (error, res, next) => {
-  if (error instanceof AppError) {
-    return res.status(error.statusCode).json({ success: false, message: error.message });
-  }
-  next(error);
-};
 
+// Gia sư ứng tuyển vào một lớp
 const applyForClass = async (req, res, next) => {
   try {
     const application = await classApplicationService.applyForClass(req.user.id, req.params.id);
@@ -20,10 +14,11 @@ const applyForClass = async (req, res, next) => {
       data: { application },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Lấy danh sách đơn ứng tuyển của gia sư hiện tại
 const getMyApplications = async (req, res, next) => {
   try {
     const result = await classApplicationService.getMyApplications(req.user.id, req.query);
@@ -33,7 +28,7 @@ const getMyApplications = async (req, res, next) => {
       data: result,
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
@@ -47,7 +42,7 @@ const getApplicants = async (req, res, next) => {
       data: result,
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
@@ -65,10 +60,11 @@ const selectApplicant = async (req, res, next) => {
       data: { application },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Huỷ đơn ứng tuyển (hoặc gửi yêu cầu huỷ nếu đã được chọn)
 const cancelApplication = async (req, res, next) => {
   try {
     const application = await classApplicationService.cancelApplication(
@@ -86,12 +82,13 @@ const cancelApplication = async (req, res, next) => {
       data: { application },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
 // ── Luồng mời gia sư trực tiếp (gia sư phản hồi lời mời) ──
 
+// Lấy danh sách lời mời dạy của gia sư hiện tại
 const getMyInvitations = async (req, res, next) => {
   try {
     const result = await classApplicationService.getMyInvitations(req.user.id, req.query);
@@ -101,10 +98,11 @@ const getMyInvitations = async (req, res, next) => {
       data: result,
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Gia sư chấp nhận lời mời dạy
 const acceptInvitation = async (req, res, next) => {
   try {
     const application = await classApplicationService.acceptInvitation(
@@ -117,10 +115,11 @@ const acceptInvitation = async (req, res, next) => {
       data: { application },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Gia sư từ chối lời mời dạy
 const declineInvitation = async (req, res, next) => {
   try {
     const application = await classApplicationService.declineInvitation(
@@ -134,7 +133,7 @@ const declineInvitation = async (req, res, next) => {
       data: { application },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 

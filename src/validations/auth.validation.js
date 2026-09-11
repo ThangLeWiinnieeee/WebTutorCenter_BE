@@ -1,7 +1,11 @@
 const Joi = require("joi");
-const ROLES = require("../constants/role");
 const { PHONE_REGEX } = require("../constants/tutor");
 const { validate } = require("../middlewares/validate.middleware");
+
+const {
+  PASSWORD_COMPLEXITY_REGEX,
+  PASSWORD_COMPLEXITY_MESSAGE,
+} = require("../constants/password");
 
 const registerSchema = Joi.object({
   fullName: Joi.string().min(2).max(100).required().messages({
@@ -15,22 +19,23 @@ const registerSchema = Joi.object({
     "string.email": "Email không hợp lệ",
     "any.required": "Email là bắt buộc",
   }),
-  password: Joi.string().min(6).required().messages({
-    "string.empty": "Mật khẩu không được để trống",
-    "string.min": "Mật khẩu phải có ít nhất 6 ký tự",
-    "any.required": "Mật khẩu là bắt buộc",
-  }),
+  password: Joi.string()
+    .min(10)
+    .pattern(PASSWORD_COMPLEXITY_REGEX)
+    .required()
+    .messages({
+      "string.empty": "Mật khẩu không được để trống",
+      "string.min": "Mật khẩu phải có ít nhất 10 ký tự",
+      "string.pattern.base": PASSWORD_COMPLEXITY_MESSAGE,
+      "any.required": "Mật khẩu là bắt buộc",
+    }),
   confirmPassword: Joi.string().valid(Joi.ref("password")).required().messages({
     "string.empty": "Mật khẩu xác nhận không được để trống",
     "any.only": "Mật khẩu xác nhận không khớp",
     "any.required": "Mật khẩu xác nhận là bắt buộc",
   }),
-  role: Joi.string()
-    .valid(ROLES.USER, ROLES.TUTOR)
-    .default(ROLES.USER)
-    .messages({
-      "any.only": `Vai trò phải là '${ROLES.USER}' hoặc '${ROLES.TUTOR}'`,
-    }),
+  // Public registration không được quyết định quyền; strip để tương thích client cũ còn gửi field này.
+  role: Joi.any().strip(),
   phone: Joi.string()
     .pattern(PHONE_REGEX)
     .required()
@@ -117,11 +122,16 @@ const resetPasswordSchema = Joi.object({
     "string.empty": "Reset token không được để trống",
     "any.required": "Reset token là bắt buộc",
   }),
-  newPassword: Joi.string().min(6).required().messages({
-    "string.empty": "Mật khẩu mới không được để trống",
-    "string.min": "Mật khẩu mới phải có ít nhất 6 ký tự",
-    "any.required": "Mật khẩu mới là bắt buộc",
-  }),
+  newPassword: Joi.string()
+    .min(10)
+    .pattern(PASSWORD_COMPLEXITY_REGEX)
+    .required()
+    .messages({
+      "string.empty": "Mật khẩu mới không được để trống",
+      "string.min": "Mật khẩu mới phải có ít nhất 10 ký tự",
+      "string.pattern.base": PASSWORD_COMPLEXITY_MESSAGE,
+      "any.required": "Mật khẩu mới là bắt buộc",
+    }),
   confirmPassword: Joi.string().valid(Joi.ref("newPassword")).required().messages({
     "string.empty": "Mật khẩu xác nhận không được để trống",
     "any.only": "Mật khẩu xác nhận không khớp",

@@ -3,11 +3,13 @@ const { PROFILE_CHANGE_STATUS } = require("../constants/profileChangeRequest");
 
 const POPULATE_USER = "fullName email avatar";
 
+// Tạo yêu cầu đổi hồ sơ mới
 const create = async (data) => {
   const doc = new ProfileChangeRequest(data);
   return await doc.save();
 };
 
+// Tìm yêu cầu đổi hồ sơ đang chờ duyệt của một gia sư
 const findPendingByTutorId = async (tutorId) => {
   return await ProfileChangeRequest.findOne({
     tutorId,
@@ -15,8 +17,10 @@ const findPendingByTutorId = async (tutorId) => {
   });
 };
 
-const findById = async (id) => {
+// Lấy chi tiết một yêu cầu đổi hồ sơ theo id
+const findById = async (id, { session } = {}) => {
   return await ProfileChangeRequest.findById(id)
+    .session(session || null)
     .populate("userId", POPULATE_USER)
     .populate("tutorId");
 };
@@ -34,6 +38,7 @@ const findPage = async ({ status, page = 1, limit = 10 }) => {
     .limit(limit);
 };
 
+// Đếm số yêu cầu đổi hồ sơ theo từng trạng thái
 const countGrouped = async () => {
   const [pending, approved, rejected] = await Promise.all([
     ProfileChangeRequest.countDocuments({ status: PROFILE_CHANGE_STATUS.PENDING }),
@@ -43,10 +48,19 @@ const countGrouped = async () => {
   return { pending, approved, rejected };
 };
 
-const update = async (id, updateData) => {
-  return await ProfileChangeRequest.findByIdAndUpdate(id, updateData, { new: true })
+// Cập nhật một yêu cầu đổi hồ sơ
+const update = async (id, updateData, { session } = {}) => {
+  return await ProfileChangeRequest.findByIdAndUpdate(id, updateData, { new: true, session })
     .populate("userId", POPULATE_USER)
     .populate("tutorId");
+};
+
+const transitionStatus = async (id, expectedStatus, updateData, { session } = {}) => {
+  return ProfileChangeRequest.findOneAndUpdate(
+    { _id: id, status: expectedStatus },
+    updateData,
+    { new: true, runValidators: true, session },
+  );
 };
 
 // Xóa toàn bộ yêu cầu đổi hồ sơ của một người dùng (xóa vĩnh viễn tài khoản)
@@ -61,5 +75,6 @@ module.exports = {
   findPage,
   countGrouped,
   update,
+  transitionStatus,
   deleteByUserId,
 };

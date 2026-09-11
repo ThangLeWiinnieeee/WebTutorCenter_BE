@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const ClassModel = require("../models/class.model");
 const { CLASS_STATUS } = require("../constants/class");
 const { GENDER_OPTIONS } = require("../constants/tutor");
@@ -8,13 +9,13 @@ const SPECIFIC_TUTOR_LEVELS = ["student", "teacher"];
 // Mặc định mọi truy vấn đọc đều bỏ qua bài đăng đã xóa mềm (nằm trong thùng rác)
 const NOT_DELETED = { deletedAt: null };
 
-// Bài đăng "còn hiển thị" ở feed/danh sách công khai: chưa bị ghép hoặc hết hạn.
+// Bài đăng "còn hiển thị" ở feed/danh sách công khai: chưa bị ghép, hết hạn hoặc đã hoàn thành.
 // Dùng $nin nên cũng khớp các bài cũ chưa có field `status` (legacy) — coi như đang mở.
-const VISIBLE_STATUS = { status: { $nin: [CLASS_STATUS.MATCHED, CLASS_STATUS.EXPIRED] } };
+const VISIBLE_STATUS = {
+  status: { $nin: [CLASS_STATUS.MATCHED, CLASS_STATUS.EXPIRED, CLASS_STATUS.COMPLETED] },
+};
 
-// Xây bộ lọc feed cá nhân hóa cho gia sư: theo môn + giới tính + trình độ + khu vực.
-// genderPrefs / levelPrefs là danh sách giá trị gia sư CHẤP NHẬN (luôn gồm "any").
-// Dùng $nin loại các giá trị cụ thể không khớp → bài đăng "any" hoặc thiếu field (legacy) vẫn hiện.
+// Dựng bộ lọc feed cá nhân hoá cho gia sư (môn + giới tính + trình độ + khu vực)
 const buildFeedMatchFilter = ({ subjects, genderPrefs, levelPrefs, provinceCode } = {}) => {
   // requestedTutorId: null → ẩn lớp mời gia sư trực tiếp khỏi feed công khai
   const filter = { ...NOT_DELETED, ...VISIBLE_STATUS, requestedTutorId: null };
@@ -35,13 +36,15 @@ const buildFeedMatchFilter = ({ subjects, genderPrefs, levelPrefs, provinceCode 
   return filter;
 };
 
-const create = async (payload) => {
+// Tạo bài đăng lớp mới
+const create = async (payload, { session } = {}) => {
   const doc = new ClassModel(payload);
-  return await doc.save();
+  return await doc.save({ session });
 };
 
-const findById = async (id) => {
-  return await ClassModel.findOne({ _id: id, ...NOT_DELETED }).lean();
+// Tìm một bài đăng theo id (bỏ bài đã xoá mềm)
+const findById = async (id, { session } = {}) => {
+  return await ClassModel.findOne({ _id: id, ...NOT_DELETED }).session(session || null).lean();
 };
 
 // Kiểm tra trùng mã lớp — phải xét cả bài đăng đã xóa mềm để tránh tái dùng mã
@@ -49,6 +52,7 @@ const findByClassCode = async (classCode) => {
   return await ClassModel.findOne({ classCode }).lean();
 };
 
+// Lấy danh sách bài đăng công khai (lọc, phân trang, ẩn lớp mời/đã khoá)
 const findMany = async (filters = {}, options = {}) => {
   const page = options.page || 1;
   const limit = options.limit || 6;
@@ -66,17 +70,33 @@ const findMany = async (filters = {}, options = {}) => {
   return { classes, totalItems };
 };
 
-// Lấy các bài đăng tuyển gia sư khớp tiêu chí cá nhân hóa của gia sư
-// (môn + giới tính + trình độ + khu vực). Xem buildFeedMatchFilter.
+// Lấy bài đăng khớp tiêu chí feed của gia sư, sắp theo điểm quan tâm rồi bài mới nhất
+// ponytail: sort chạy trên field tính động (_affinity) nên là in-memory sort trên tập đã lọc;
+// đủ ở quy mô hiện tại, cân nhắc precompute nếu số bài đăng lên rất lớn.
 const findByFeedCriteria = async (criteria = {}, options = {}) => {
   const page = options.page || 1;
   const limit = options.limit || 10;
   const skip = (page - 1) * limit;
   const filters = buildFeedMatchFilter(criteria);
-  if (options.excludeIds?.length) filters._id = { $nin: options.excludeIds };
+  // $match trong aggregate KHÔNG tự cast string → ObjectId như find → phải tự chuyển excludeIds
+  if (options.excludeIds?.length) {
+    filters._id = { $nin: options.excludeIds.map((id) => new mongoose.Types.ObjectId(id)) };
+  }
+
+  const branches = Object.entries(options.affinity || {})
+    .filter(([, score]) => Number(score) > 0)
+    .map(([subject, score]) => ({ case: { $eq: ["$subject", subject] }, then: Number(score) }));
+  const affinityExpr = branches.length ? { $switch: { branches, default: 0 } } : 0;
 
   const [classes, totalItems] = await Promise.all([
-    ClassModel.find(filters).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    ClassModel.aggregate([
+      { $match: filters },
+      { $addFields: { _affinity: affinityExpr } },
+      { $sort: { _affinity: -1, createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      { $project: { _affinity: 0 } },
+    ]),
     ClassModel.countDocuments(filters),
   ]);
 
@@ -96,18 +116,77 @@ const updateStatus = async (id, status) => {
   return await ClassModel.findByIdAndUpdate(id, { status }, { new: true }).lean();
 };
 
+const transitionStatus = async (id, expectedStatus, updateData, { session } = {}) => {
+  const status = Array.isArray(expectedStatus) ? { $in: expectedStatus } : expectedStatus;
+  return ClassModel.findOneAndUpdate(
+    { _id: id, status, ...NOT_DELETED },
+    updateData,
+    { new: true, session },
+  ).lean();
+};
+
+// CAS guard đồng thời ghi updatedAt để các transaction trên lớp cùng tranh chấp một document.
+const guardOpen = async (id, { session } = {}) => {
+  return ClassModel.findOneAndUpdate(
+    { _id: id, status: CLASS_STATUS.OPEN, ...NOT_DELETED },
+    { $set: { updatedAt: new Date() } },
+    { new: true, session },
+  ).lean();
+};
+
+const guardMatched = async (id, { session } = {}) => {
+  return ClassModel.findOneAndUpdate(
+    { _id: id, status: CLASS_STATUS.MATCHED, ...NOT_DELETED },
+    { $set: { updatedAt: new Date() } },
+    { new: true, session },
+  ).lean();
+};
+
+const confirmCompletionBy = async (id, field, { session } = {}) => {
+  return ClassModel.findOneAndUpdate(
+    { _id: id, status: CLASS_STATUS.MATCHED, [field]: { $ne: true }, ...NOT_DELETED },
+    { $set: { [field]: true } },
+    { new: true, session },
+  ).lean();
+};
+
+const markSelectionReminderSent = async (id, now, deadline, { session } = {}) => {
+  return ClassModel.findOneAndUpdate(
+    {
+      _id: id,
+      status: CLASS_STATUS.OPEN,
+      selectionReminderSentAt: null,
+      startDate: { $gt: now, $lte: deadline },
+      ...NOT_DELETED,
+    },
+    { $set: { selectionReminderSentAt: now } },
+    { new: true, session },
+  ).lean();
+};
+
 // Cập nhật một số field của bài đăng (vd cờ hoàn thành)
 const update = async (id, data) => {
   return await ClassModel.findByIdAndUpdate(id, data, { new: true }).lean();
 };
 
-// Bài đăng cần được đánh dấu hết hạn: đã tới thời gian bắt đầu, còn đang mở,
-// và không nằm trong danh sách lớp đang có đơn (pending/approved/cancel_requested).
+// Lấy bài đăng cần đánh dấu hết hạn (đã tới giờ bắt đầu, còn mở, không có đơn)
 const findExpirableClasses = async (now, excludeIds = []) => {
   const filter = {
     ...NOT_DELETED,
     ...VISIBLE_STATUS,
     startDate: { $lte: now },
+  };
+  if (excludeIds.length) filter._id = { $nin: excludeIds };
+  return await ClassModel.find(filter).lean();
+};
+
+// Lấy bài đăng cần nhắc chọn gia sư (sắp bắt đầu, còn mở, chưa từng nhắc)
+const findSelectionReminderDueClasses = async (now, deadline, excludeIds = []) => {
+  const filter = {
+    ...NOT_DELETED,
+    status: CLASS_STATUS.OPEN,
+    selectionReminderSentAt: null,
+    startDate: { $gt: now, $lte: deadline },
   };
   if (excludeIds.length) filter._id = { $nin: excludeIds };
   return await ClassModel.find(filter).lean();
@@ -133,6 +212,7 @@ const findManyForAdmin = async (filters = {}, options = {}) => {
   return { classes, totalItems };
 };
 
+// Lấy chi tiết một bài đăng kèm thông tin người đăng
 const findByIdPopulated = async (id) => {
   return await ClassModel.findOne({ _id: id, ...NOT_DELETED })
     .populate("createdBy", "fullName email avatar")
@@ -213,7 +293,26 @@ const deleteAllByCreatedBy = async (userId) => {
   return await ClassModel.deleteMany({ createdBy: userId });
 };
 
+const renameSubject = async (oldName, newName, { session } = {}) => {
+  return ClassModel.updateMany({ subject: oldName }, { $set: { subject: newName } }, { session });
+};
+
+// Số bài đăng (không tính đã xóa mềm) theo ngày kể từ `since` — cho biểu đồ thống kê.
+const aggregateCountByDay = async (since) => {
+  return await ClassModel.aggregate([
+    { $match: { deletedAt: null, createdAt: { $gte: since } } },
+    {
+      $group: {
+        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+07:00" } },
+        count: { $sum: 1 },
+      },
+    },
+    { $project: { _id: 0, date: "$_id", count: 1 } },
+  ]);
+};
+
 module.exports = {
+  aggregateCountByDay,
   create,
   findById,
   findByClassCode,
@@ -221,8 +320,14 @@ module.exports = {
   findByFeedCriteria,
   countByFeedCriteriaSince,
   updateStatus,
+  transitionStatus,
+  guardOpen,
+  guardMatched,
+  confirmCompletionBy,
+  markSelectionReminderSent,
   update,
   findExpirableClasses,
+  findSelectionReminderDueClasses,
   findByCreatedBy,
   findManyForAdmin,
   findByIdPopulated,
@@ -233,4 +338,5 @@ module.exports = {
   hardDelete,
   findAllIdsByCreatedBy,
   deleteAllByCreatedBy,
+  renameSubject,
 };

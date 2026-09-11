@@ -1,11 +1,41 @@
 const Joi = require("joi");
 const {
   OCCUPATION_STATUS,
+  GENDER_OPTIONS,
   PHONE_REGEX,
   TIME_REGEX,
   DAYS_OF_WEEK,
 } = require("../constants/tutor");
-const { validate } = require("../middlewares/validate.middleware");
+const { validate, validateQuery } = require("../middlewares/validate.middleware");
+
+const activeTutorsQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(20),
+});
+
+const topTutorsQuerySchema = Joi.object({
+  limit: Joi.number().integer().min(1).max(50).default(10),
+});
+
+const newTutorsQuerySchema = Joi.object({
+  days: Joi.number().integer().min(1).max(365).default(7),
+  limit: Joi.number().integer().min(1).max(50).default(10),
+});
+
+const searchTutorsQuerySchema = Joi.object({
+  name: Joi.string().trim().allow("").max(100).optional(),
+  subject: Joi.string().trim().allow("").max(100).optional(),
+  occupationStatus: Joi.string()
+    .valid(...Object.values(OCCUPATION_STATUS))
+    .allow("")
+    .optional(),
+  gender: Joi.string().valid(...GENDER_OPTIONS).allow("").optional(),
+  yearOfBirth: Joi.number().integer().min(1900).max(new Date().getFullYear()).optional(),
+  province: Joi.number().integer().positive().optional(),
+  district: Joi.number().integer().positive().optional(),
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(20),
+});
 
 const availabilitySlotSchema = Joi.object({
   day: Joi.string()
@@ -157,6 +187,13 @@ const registerTutorSchema = Joi.object({
     "any.required": "Ảnh CCCD mặt sau là bắt buộc",
   }),
 
+  // Biên nhận do BE ký sau khi quét; tutor.service xác minh user + đúng hai URL ở trên.
+  cccdVerificationReceipt: Joi.string().max(8192).required().messages({
+    "string.empty": "Vui lòng quét CCCD trước khi gửi hồ sơ",
+    "string.max": "Kết quả quét CCCD không hợp lệ",
+    "any.required": "Vui lòng quét CCCD trước khi gửi hồ sơ",
+  }),
+
   // Thẻ sinh viên mặt trước: bắt buộc khi là sinh viên. Mặt sau: tùy chọn.
   studentCardFrontImage: Joi.string()
     .uri()
@@ -199,6 +236,16 @@ const registerTutorSchema = Joi.object({
       "array.max": "Tối đa 5 ảnh bằng cấp",
       "array.min": "Vui lòng tải lên ít nhất 1 ảnh bằng cấp",
       "any.required": "Ảnh bằng cấp là bắt buộc",
+    }),
+
+  // Bằng cấp công khai (tùy chọn) — gia sư cho mọi người xem; tối đa 5, không bắt buộc.
+  publicCertificateImages: Joi.array()
+    .items(Joi.string().uri().messages({ "string.uri": "Ảnh bằng cấp công khai không hợp lệ" }))
+    .max(5)
+    .default([])
+    .messages({
+      "array.base": "Danh sách bằng cấp công khai phải là một mảng",
+      "array.max": "Tối đa 5 ảnh bằng cấp công khai",
     }),
 });
 
@@ -275,6 +322,12 @@ const profileChangeRequestSchema = Joi.object({
     .items(Joi.string().uri().messages({ "string.uri": "Ảnh bằng cấp không hợp lệ" }))
     .max(5)
     .messages({ "array.max": "Tối đa 5 ảnh bằng cấp" }),
+
+  // Bằng cấp công khai — cho phép bổ sung / cập nhật / gỡ (mảng rỗng), qua duyệt.
+  publicCertificateImages: Joi.array()
+    .items(Joi.string().uri().messages({ "string.uri": "Ảnh bằng cấp công khai không hợp lệ" }))
+    .max(5)
+    .messages({ "array.max": "Tối đa 5 ảnh bằng cấp công khai" }),
 })
   .min(1)
   .messages({ "object.min": "Vui lòng cung cấp ít nhất một thông tin để cập nhật" });
@@ -284,4 +337,9 @@ module.exports = {
   rejectTutorSchema,
   profileChangeRequestSchema,
   validate,
+  validateQuery,
+  activeTutorsQuerySchema,
+  topTutorsQuerySchema,
+  newTutorsQuerySchema,
+  searchTutorsQuerySchema,
 };

@@ -1,17 +1,11 @@
 const tutorService = require("../services/tutor.service");
 const profileChangeRequestService = require("../services/profileChangeRequest.service");
 const { successResponse } = require("../utils/response");
-const AppError = require("../utils/AppError");
 const MESSAGE = require("../constants/message");
 const HTTP_STATUS = require("../constants/status");
 
-const handleError = (error, res, next) => {
-  if (error instanceof AppError) {
-    return res.status(error.statusCode).json({ success: false, message: error.message });
-  }
-  next(error);
-};
 
+// Đăng ký hồ sơ gia sư
 const registerTutor = async (req, res, next) => {
   try {
     const tutor = await tutorService.registerTutor(req.user.id, req.body);
@@ -22,10 +16,11 @@ const registerTutor = async (req, res, next) => {
       data: { tutor },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
+// Lấy hồ sơ gia sư của người dùng hiện tại
 const getTutorProfile = async (req, res, next) => {
   try {
     const tutor = await tutorService.getTutorProfile(req.user.id);
@@ -36,102 +31,78 @@ const getTutorProfile = async (req, res, next) => {
       data: { tutor },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
 // Lấy danh sách gia sư đã approved (phân trang)
 const getActiveTutors = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-
-    const result = await tutorService.getActiveTutors(page, limit);
+    const result = await tutorService.getActiveTutors(req.query.page, req.query.limit);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
-      message: "Lấy danh sách gia sư thành công",
+      message: MESSAGE.TUTOR_LIST_SUCCESS,
       data: result,
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
 // Lấy top 10 gia sư nổi bật tháng đó
 const getTopTutors = async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
-    const tutors = await tutorService.getTopTutors(limit);
+    const tutors = await tutorService.getTopTutors(req.query.limit);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
-      message: "Lấy danh sách top gia sư thành công",
+      message: MESSAGE.TUTOR_TOP_SUCCESS,
       data: { tutors },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
 // Lấy top 10 gia sư tháng hiện tại
 const getTopTutorsThisMonth = async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
-    const tutors = await tutorService.getTopTutorsThisMonth(limit);
+    const tutors = await tutorService.getTopTutorsThisMonth(req.query.limit);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
-      message: "Lấy danh sách top gia sư tháng này thành công",
+      message: MESSAGE.TUTOR_TOP_MONTH_SUCCESS,
       data: { tutors },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
 // Lấy gia sư mới được approved
 const getNewTutors = async (req, res, next) => {
   try {
-    const days = parseInt(req.query.days) || 7;
-    const limit = parseInt(req.query.limit) || 10;
-    const tutors = await tutorService.getNewTutors(days, limit);
+    const tutors = await tutorService.getNewTutors(req.query.days, req.query.limit);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
-      message: "Lấy danh sách gia sư mới thành công",
+      message: MESSAGE.TUTOR_NEW_SUCCESS,
       data: { tutors },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
 // Tìm kiếm & lọc gia sư
 const searchActiveTutors = async (req, res, next) => {
   try {
-    const filters = {
-      name: req.query.name,
-      subject: req.query.subject,
-      occupationStatus: req.query.occupationStatus,
-      gender: req.query.gender,
-      yearOfBirth: req.query.yearOfBirth,
-      province: req.query.province ? parseInt(req.query.province) : null,
-      district: req.query.district ? parseInt(req.query.district) : null,
-    };
-
-    // Loại bỏ các filter có giá trị null/undefined
-    Object.keys(filters).forEach((key) => {
-      if (!filters[key]) delete filters[key];
-    });
-
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-
+    const { page, limit, ...filters } = req.query;
     const result = await tutorService.searchActiveTutors(filters, page, limit);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
-      message: "Tìm kiếm gia sư thành công",
+      message: MESSAGE.TUTOR_SEARCH_SUCCESS,
       data: result,
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
@@ -141,27 +112,24 @@ const getTutorById = async (req, res, next) => {
     const tutor = await tutorService.getTutorById(req.params.id);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
-      message: "Lấy thông tin gia sư thành công",
+      message: MESSAGE.TUTOR_GET_SUCCESS,
       data: { tutor },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
 // Upload một ảnh giấy tờ xác thực (CCCD/bằng cấp) → trả về URL Cloudinary để gắn vào form đăng ký
 const uploadDocument = async (req, res, next) => {
   try {
-    if (!req.file) {
-      throw new AppError("Tải ảnh lên thất bại, vui lòng thử lại", HTTP_STATUS.BAD_REQUEST);
-    }
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
-      message: "Tải ảnh lên thành công",
+      message: MESSAGE.TUTOR_UPLOAD_DOC_SUCCESS,
       data: { url: req.file.path },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
@@ -175,7 +143,7 @@ const requestProfileChange = async (req, res, next) => {
       data: { request },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 
@@ -189,7 +157,7 @@ const getMyProfileChangeRequest = async (req, res, next) => {
       data: { request },
     });
   } catch (error) {
-    handleError(error, res, next);
+    next(error);
   }
 };
 

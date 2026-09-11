@@ -1,14 +1,15 @@
 const conversationRepository = require("../repositories/conversation.repository");
 const messageRepository = require("../repositories/message.repository");
 const userRepository = require("../repositories/user.repository");
-const User = require("../models/user.model");
-const { CHAT_ROLES } = require("../constants/chat");
+const tutorRepository = require("../repositories/tutor.repository");
+const classRepository = require("../repositories/class.repository");
+const { CHAT_ROLES, CHAT_CARD_KINDS } = require("../constants/chat");
 const AppError = require("../utils/AppError");
 const HTTP_STATUS = require("../constants/status");
+const MESSAGE = require("../constants/message");
 const ROLES = require("../constants/role");
 const { ConversationMapper, MessageMapper } = require("../mappers");
 const { buildPagination } = require("../utils/pagination");
-const { diacriticInsensitiveRegex } = require("../utils/search");
 const { emitToUser, emitToAdmins } = require("../configs/socket");
 
 // Tên sự kiện realtime (đồng bộ với FE)
@@ -18,6 +19,7 @@ const CHAT_EVENTS = {
   CONVERSATION: "chat:conversation",
 };
 
+// Lấy _id từ một tham chiếu (object đã populate hoặc id)
 const extractId = (ref) => (ref && typeof ref === "object" ? ref._id : ref);
 
 // Chuẩn hóa payload tin nhắn và đảm bảo có ít nhất text hoặc ảnh.
@@ -25,7 +27,7 @@ const normalizeMessageInput = ({ content, imageUrl } = {}) => {
   const text = (content || "").trim();
   const image = imageUrl || null;
   if (!text && !image) {
-    throw new AppError("Vui lòng nhập nội dung hoặc đính kèm ảnh", HTTP_STATUS.BAD_REQUEST);
+    throw new AppError(MESSAGE.CHAT_CONTENT_OR_IMAGE_REQUIRED, HTTP_STATUS.BAD_REQUEST);
   }
   return { text, image };
 };
@@ -40,8 +42,7 @@ const buildPreview = (text, image) => text || (image ? "[Hình ảnh]" : "");
 // Lấy (hoặc tạo) cuộc trò chuyện của chính người dùng + một trang tin nhắn.
 const getTutorConversation = async (tutorUserId, query = {}) => {
   const conversation = await conversationRepository.findOrCreateByTutorUserId(tutorUserId);
-  const page = Math.max(1, Number(query.page) || 1);
-  const limit = Math.min(50, Math.max(1, Number(query.limit) || 30));
+  const { page = 1, limit = 30 } = query;
 
   const [docs, totalItems] = await Promise.all([
     messageRepository.findByConversationPage({ conversationId: conversation._id, page, limit }),
@@ -55,6 +56,7 @@ const getTutorConversation = async (tutorUserId, query = {}) => {
   };
 };
 
+// Gia sư/người dùng gửi tin nhắn (text hoặc ảnh) cho admin
 const sendMessageAsTutor = async (tutorUserId, input) => {
   const { text, image } = normalizeMessageInput(input);
   const conversation = await conversationRepository.findOrCreateByTutorUserId(tutorUserId);
@@ -91,6 +93,7 @@ const sendMessageAsTutor = async (tutorUserId, input) => {
   return messageDTO;
 };
 
+// Đánh dấu người dùng đã đọc hết tin nhắn
 const markTutorRead = async (tutorUserId) => {
   const conversation = await conversationRepository.findOrCreateByTutorUserId(tutorUserId);
   await conversationRepository.updateById(conversation._id, { tutorUnread: 0 });
@@ -101,6 +104,7 @@ const markTutorRead = async (tutorUserId) => {
   });
 };
 
+// Đếm số tin nhắn chưa đọc của người dùng
 const getTutorUnreadCount = async (tutorUserId) => {
   const conversation = await conversationRepository.findByTutorUserId(tutorUserId);
   return conversation?.tutorUnread || 0;
@@ -112,20 +116,13 @@ const getTutorUnreadCount = async (tutorUserId) => {
 // rồi lọc conversation. Bao gồm cả gia sư lẫn học viên.
 const buildAdminConversationFilter = async (keyword) => {
   if (!keyword || !keyword.trim()) return {};
-  const pattern = diacriticInsensitiveRegex(keyword);
-  const users = await User.find({
-    role: { $ne: ROLES.ADMIN },
-    deletedAt: null,
-    $or: [{ fullName: pattern }, { email: pattern }],
-  })
-    .select("_id")
-    .lean();
-  return { tutorUserId: { $in: users.map((u) => u._id) } };
+  const userIds = await userRepository.findIdsByKeywordExcludingRole(keyword, ROLES.ADMIN);
+  return { tutorUserId: { $in: userIds } };
 };
 
+// Lấy danh sách hội thoại cho admin (lọc theo tên/email + phân trang)
 const getAdminConversations = async (query = {}) => {
-  const page = Math.max(1, Number(query.page) || 1);
-  const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
+  const { page = 1, limit = 20 } = query;
   const filter = await buildAdminConversationFilter(query.keyword);
 
   const [{ items, totalItems }, totalUnread] = await Promise.all([
@@ -140,12 +137,12 @@ const getAdminConversations = async (query = {}) => {
   };
 };
 
+// Lấy tin nhắn của một hội thoại cho admin (phân trang)
 const getAdminConversationMessages = async (conversationId, query = {}) => {
   const conversation = await conversationRepository.findById(conversationId);
-  if (!conversation) throw new AppError("Không tìm thấy cuộc trò chuyện", HTTP_STATUS.NOT_FOUND);
+  if (!conversation) throw new AppError(MESSAGE.CHAT_CONVERSATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
 
-  const page = Math.max(1, Number(query.page) || 1);
-  const limit = Math.min(50, Math.max(1, Number(query.limit) || 30));
+  const { page = 1, limit = 30 } = query;
 
   const [docs, totalItems] = await Promise.all([
     messageRepository.findByConversationPage({ conversationId, page, limit }),
@@ -159,22 +156,11 @@ const getAdminConversationMessages = async (conversationId, query = {}) => {
   };
 };
 
-const sendMessageAsAdmin = async (conversationId, adminUserId, input) => {
-  const { text, image } = normalizeMessageInput(input);
-  const conversation = await conversationRepository.findById(conversationId);
-  if (!conversation) throw new AppError("Không tìm thấy cuộc trò chuyện", HTTP_STATUS.NOT_FOUND);
-
-  const message = await messageRepository.create({
-    conversationId,
-    senderId: adminUserId,
-    senderRole: CHAT_ROLES.ADMIN,
-    content: text,
-    imageUrl: image,
-  });
-
+// Cập nhật hội thoại + phát realtime cho một tin nhắn admin vừa tạo (text/ảnh/thẻ).
+const finalizeAdminMessage = async (conversation, message, preview) => {
   // Admin gửi → gia sư có thêm 1 tin chưa đọc; phía admin xem như đã đọc.
-  const updated = await conversationRepository.updateById(conversationId, {
-    lastMessage: buildPreview(text, image),
+  const updated = await conversationRepository.updateById(conversation._id, {
+    lastMessage: preview,
     lastMessageAt: message.createdAt,
     lastSenderRole: CHAT_ROLES.ADMIN,
     adminUnread: 0,
@@ -185,7 +171,7 @@ const sendMessageAsAdmin = async (conversationId, adminUserId, input) => {
   const tutorUserId = extractId(updated.tutorUserId);
   // Realtime: gửi cho gia sư + đồng bộ danh sách cho các admin khác.
   emitToUser(tutorUserId, CHAT_EVENTS.MESSAGE, {
-    conversationId,
+    conversationId: conversation._id,
     message: messageDTO,
     unreadCount: updated.tutorUnread,
   });
@@ -197,14 +183,78 @@ const sendMessageAsAdmin = async (conversationId, adminUserId, input) => {
   return messageDTO;
 };
 
+// Admin gửi tin nhắn (text hoặc ảnh) vào hội thoại
+const sendMessageAsAdmin = async (conversationId, adminUserId, input) => {
+  const { text, image } = normalizeMessageInput(input);
+  const conversation = await conversationRepository.findById(conversationId);
+  if (!conversation) throw new AppError(MESSAGE.CHAT_CONVERSATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+
+  const message = await messageRepository.create({
+    conversationId,
+    senderId: adminUserId,
+    senderRole: CHAT_ROLES.ADMIN,
+    content: text,
+    imageUrl: image,
+  });
+
+  return finalizeAdminMessage(conversation, message, buildPreview(text, image));
+};
+
+// Dựng thẻ thông tin từ DB — chỉ lấy dữ liệu công khai (họ tên/avatar gia sư, mã +
+// môn bài đăng). Không đưa SĐT/giấy tờ/thông tin nhạy cảm vào thẻ.
+const buildCard = async (kind, refId) => {
+  if (kind === CHAT_CARD_KINDS.TUTOR) {
+    const tutor = await tutorRepository.findById(refId);
+    if (!tutor) throw new AppError(MESSAGE.TUTOR_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+    const u = tutor.userId;
+    return {
+      kind,
+      refId: tutor._id,
+      title: u?.fullName || "Gia sư",
+      subtitle: tutor.subjects?.[0] || null,
+      image: u?.avatar || null,
+    };
+  }
+  const classItem = await classRepository.findById(refId);
+  if (!classItem) throw new AppError(MESSAGE.CLASS_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  return {
+    kind,
+    refId: classItem._id,
+    title: classItem.classCode,
+    subtitle: classItem.subject || null,
+    image: null,
+  };
+};
+
+// Admin đính kèm thẻ gia sư/bài đăng vào hội thoại (thay vì gõ text).
+const sendCardAsAdmin = async (conversationId, adminUserId, { kind, refId }) => {
+  const conversation = await conversationRepository.findById(conversationId);
+  if (!conversation) throw new AppError(MESSAGE.CHAT_CONVERSATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+
+  const card = await buildCard(kind, refId);
+  const message = await messageRepository.create({
+    conversationId,
+    senderId: adminUserId,
+    senderRole: CHAT_ROLES.ADMIN,
+    content: "",
+    imageUrl: null,
+    card,
+  });
+
+  const preview = kind === CHAT_CARD_KINDS.TUTOR ? `[Gia sư] ${card.title}` : `[Bài đăng] ${card.title}`;
+  return finalizeAdminMessage(conversation, message, preview);
+};
+
+// Đánh dấu admin đã đọc hết tin nhắn của hội thoại
 const markAdminRead = async (conversationId) => {
   const conversation = await conversationRepository.findById(conversationId);
-  if (!conversation) throw new AppError("Không tìm thấy cuộc trò chuyện", HTTP_STATUS.NOT_FOUND);
+  if (!conversation) throw new AppError(MESSAGE.CHAT_CONVERSATION_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   await conversationRepository.updateById(conversationId, { adminUnread: 0 });
   // Đồng bộ badge/đếm chưa đọc cho các admin khác.
   emitToAdmins(CHAT_EVENTS.READ, { conversationId, viewerRole: CHAT_ROLES.ADMIN });
 };
 
+// Đếm tổng số tin nhắn chưa đọc của admin trên mọi hội thoại
 const getAdminUnreadTotal = async () => {
   const total = await conversationRepository.sumAdminUnread();
   return total;
@@ -214,9 +264,9 @@ const getAdminUnreadTotal = async () => {
 // kể cả khi họ chưa nhắn tin trước.
 const startConversationWithTutor = async (tutorUserId) => {
   const target = await userRepository.findById(tutorUserId);
-  if (!target) throw new AppError("Không tìm thấy người dùng", HTTP_STATUS.NOT_FOUND);
+  if (!target) throw new AppError(MESSAGE.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   if (target.role === ROLES.ADMIN) {
-    throw new AppError("Không thể nhắn tin với quản trị viên", HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    throw new AppError(MESSAGE.CHAT_CANNOT_MESSAGE_ADMIN, HTTP_STATUS.UNPROCESSABLE_ENTITY);
   }
   const conversation = await conversationRepository.findOrCreateByTutorUserId(tutorUserId);
   const dto = ConversationMapper.toDTO(conversation, CHAT_ROLES.ADMIN);
@@ -233,6 +283,7 @@ module.exports = {
   getAdminConversations,
   getAdminConversationMessages,
   sendMessageAsAdmin,
+  sendCardAsAdmin,
   markAdminRead,
   getAdminUnreadTotal,
   startConversationWithTutor,

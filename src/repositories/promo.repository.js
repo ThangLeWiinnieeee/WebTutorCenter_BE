@@ -1,8 +1,13 @@
 const Promo = require("../models/promo.model");
 
+// Chuẩn hoá mã (viết hoa, bỏ khoảng trắng)
 const normalizeCode = (code) => String(code || "").toUpperCase().trim();
 
-const create = (data) => Promo.create(data);
+// Tạo một mã giảm giá mới
+const create = async (data, { session } = {}) => {
+  const [promo] = await Promo.create([data], { session });
+  return promo;
+};
 
 // Chỉ lấy mã chưa bị xóa mềm (dùng cho CRUD/áp dụng thông thường)
 const findById = (id) => Promo.findOne({ _id: id, deletedAt: null });
@@ -10,6 +15,7 @@ const findById = (id) => Promo.findOne({ _id: id, deletedAt: null });
 // Tìm theo mã, xét cả mã đã xóa mềm — phục vụ kiểm tra trùng mã + đánh giá áp dụng
 const findByCode = (code) => Promo.findOne({ code: normalizeCode(code) });
 
+// Lấy danh sách mã (loại mã đã xoá mềm, có phân trang)
 const findMany = async (filter, { page, limit }) => {
   const skip = (page - 1) * limit;
   const queryFilter = { deletedAt: null, ...filter };
@@ -20,6 +26,7 @@ const findMany = async (filter, { page, limit }) => {
   return { items, totalItems };
 };
 
+// Cập nhật một mã (chỉ mã chưa xoá mềm)
 const updateById = (id, data) =>
   Promo.findOneAndUpdate({ _id: id, deletedAt: null }, data, { new: true, runValidators: true });
 
@@ -53,12 +60,30 @@ const findDeleted = async ({ page, limit }) => {
 // Xóa vĩnh viễn (hard delete) — chỉ áp dụng cho mã đang ở thùng rác
 const deleteById = (id) => Promo.findOneAndDelete({ _id: id, deletedAt: { $ne: null } });
 
-// Xóa vĩnh viễn toàn bộ voucher cá nhân của một user (xóa vĩnh viễn tài khoản).
-// Chỉ đụng mã có ownerUserId khớp; mã ưu đãi toàn cục (ownerUserId=null) không bị ảnh hưởng.
+// Xoá vĩnh viễn toàn bộ voucher cá nhân của một user (không đụng mã toàn cục)
 const deleteByOwnerUserId = (ownerUserId) => Promo.deleteMany({ ownerUserId });
 
-const incrementUsed = (id) =>
-  Promo.findByIdAndUpdate(id, { $inc: { usedCount: 1 } }, { new: true });
+// Tăng số lượt đã dùng của mã
+const incrementUsed = (id, { session, expectedUpdatedAt } = {}) =>
+  Promo.findOneAndUpdate(
+    {
+      _id: id,
+      deletedAt: null,
+      isActive: true,
+      ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}),
+      $and: [
+        { $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] },
+      ],
+      $expr: {
+        $or: [
+          { $eq: ["$usageLimit", null] },
+          { $lt: [{ $ifNull: ["$usedCount", 0] }, "$usageLimit"] },
+        ],
+      },
+    },
+    { $inc: { usedCount: 1 } },
+    { new: true, session },
+  );
 
 // Voucher cá nhân của một user (kho mã), mới nhất trước
 const findByOwner = async (ownerUserId, { page = 1, limit = 10 }) => {
