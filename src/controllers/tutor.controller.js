@@ -95,11 +95,25 @@ const getNewTutors = async (req, res, next) => {
 const searchActiveTutors = async (req, res, next) => {
   try {
     const { page, limit, ...filters } = req.query;
-    const result = await tutorService.searchActiveTutors(filters, page, limit);
+    const result = await tutorService.searchActiveTutors(filters, page, limit, req.user);
     return successResponse(res, {
       statusCode: HTTP_STATUS.OK,
       message: MESSAGE.TUTOR_SEARCH_SUCCESS,
       data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Học viên áp dụng bộ lọc ở /tutors → ghi tín hiệu quan tâm (cá nhân hóa thứ tự)
+const recordSearchFilter = async (req, res, next) => {
+  try {
+    const counted = await tutorService.recordSearchFilter(req.user, req.body);
+    return successResponse(res, {
+      statusCode: HTTP_STATUS.OK,
+      message: MESSAGE.TUTOR_FILTER_EVENT_SUCCESS,
+      data: { counted },
     });
   } catch (error) {
     next(error);
@@ -170,6 +184,7 @@ module.exports = {
   getTopTutorsThisMonth,
   getNewTutors,
   searchActiveTutors,
+  recordSearchFilter,
   getTutorById,
   requestProfileChange,
   getMyProfileChangeRequest,
