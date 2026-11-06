@@ -221,6 +221,7 @@ const MESSAGE = {
   TUTOR_TOP_MONTH_SUCCESS: "Lấy danh sách top gia sư tháng này thành công",
   TUTOR_NEW_SUCCESS: "Lấy danh sách gia sư mới thành công",
   TUTOR_SEARCH_SUCCESS: "Tìm kiếm gia sư thành công",
+  TUTOR_FILTER_EVENT_SUCCESS: "Đã ghi nhận bộ lọc",
   TUTOR_UPLOAD_DOC_SUCCESS: "Tải ảnh lên thành công",
   TUTOR_UPLOAD_DOC_FAILED: "Tải ảnh lên thất bại, vui lòng thử lại",
 

@@ -16,6 +16,7 @@ const classPricingRepository = require("../repositories/class.pricing.repository
 const promoService = require("./promo.service");
 const promoRepository = require("../repositories/promo.repository");
 const outboxService = require("./outbox.service");
+const learnerAffinityService = require("./learnerAffinity.service");
 const { CLASS_STATUS } = require("../constants/class");
 const { NOTIFICATION_TYPES } = require("../constants/notification");
 const {
@@ -280,6 +281,8 @@ const createClass = async (payload, userId) => {
     }
     return classItem;
   });
+  // Tín hiệu cá nhân hóa /tutors, best-effort: không làm hỏng việc đăng bài nếu ghi lỗi
+  learnerAffinityService.recordClass(userId, created).catch(() => {});
   return await maskClassItem(created, { id: userId });
 };
 
@@ -362,6 +365,7 @@ const createInvitedClass = async (payload, userId) => {
     return classItem;
   });
 
+  learnerAffinityService.recordClass(userId, created).catch(() => {});
   return await maskClassItem(created, { id: userId });
 };
 

@@ -32,6 +32,17 @@ const SUBJECT_AFFINITY = {
   VIEW_DEDUP_TTL_MS: 90 * 24 * 60 * 60 * 1000,
 };
 
+// Cá nhân hóa trang /tutors cho học viên (role=user), lưu ở LearnerAffinity theo khóa "môn|tỉnh".
+// Suy giảm/trần/ngưỡng dùng chung SUBJECT_AFFINITY (half-life 14 ngày, trần 20, dưới 0,5 thì bỏ).
+// - WEIGHT.FILTER: áp dụng bộ lọc (cùng khóa chờ FILTER_THROTTLE_MS mới cộng lại).
+// - WEIGHT.CLASS: đăng/mời/chọn gia sư thành công — mỗi lớp chỉ cộng 1 lần.
+// - MAX_CONTEXTS: giữ tối đa 20 khóa điểm cao nhất.
+const LEARNER_AFFINITY = {
+  WEIGHT: { FILTER: 2, CLASS: 5 },
+  FILTER_THROTTLE_MS: SUBJECT_AFFINITY.FILTER_THROTTLE_MS,
+  MAX_CONTEXTS: 20,
+};
+
 module.exports = {
   OCCUPATION_STATUS,
   TUTOR_STATUS,
@@ -41,4 +52,5 @@ module.exports = {
   PHONE_REGEX,
   TIME_REGEX,
   SUBJECT_AFFINITY,
+  LEARNER_AFFINITY,
 };
