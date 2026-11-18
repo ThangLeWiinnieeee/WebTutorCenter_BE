@@ -9,6 +9,7 @@ const { NOTIFICATION_TYPES } = require("../constants/notification");
 const paymentRepository = require("../repositories/payment.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
 const outboxService = require("./outbox.service");
+const attendanceService = require("./attendance.service");
 const { getProvider, listProviders } = require("./gateways");
 const { PaymentMapper } = require("../mappers");
 const { buildPagination } = require("../utils/pagination");
@@ -139,6 +140,7 @@ const handleReturn = async (providerKey, query) => {
       if (!application) {
         throw new AppError(MESSAGE.PAYMENT_APPLICATION_NOT_APPROVED, HTTP_STATUS.CONFLICT);
       }
+      await attendanceService.ensurePeriodForApprovedApplication(application._id, { session });
     }
 
     await outboxService.enqueueNotification({

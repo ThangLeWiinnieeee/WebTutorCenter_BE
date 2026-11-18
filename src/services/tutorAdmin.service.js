@@ -2,6 +2,7 @@ const tutorRepository = require("../repositories/tutor.repository");
 const userRepository = require("../repositories/user.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
 const profileChangeRequestRepository = require("../repositories/profileChangeRequest.repository");
+const attendanceRepository = require("../repositories/attendance.repository");
 const outboxService = require("./outbox.service");
 const { NOTIFICATION_TYPES } = require("../constants/notification");
 const AppError = require("../utils/AppError");
@@ -90,6 +91,7 @@ const getDashboardStats = async () => {
     pendingClassApplicationsCount,
     profileChangeCounts,
     cancellationCounts,
+    pendingAttendanceCount,
   ] = await Promise.all([
     tutorRepository.countByStatus(TUTOR_STATUS.PENDING),
     tutorRepository.countByStatus(TUTOR_STATUS.APPROVED),
@@ -97,6 +99,7 @@ const getDashboardStats = async () => {
     classApplicationRepository.countSelected(),
     profileChangeRequestRepository.countGrouped(),
     classApplicationRepository.countCancellationsGrouped(),
+    attendanceRepository.countPendingAttention(),
   ]);
   return {
     pendingCount,
@@ -105,6 +108,7 @@ const getDashboardStats = async () => {
     pendingClassApplicationsCount,
     pendingProfileChangesCount: profileChangeCounts.pending,
     pendingCancellationsCount: cancellationCounts.cancel_requested,
+    pendingAttendanceCount,
   };
 };
 

@@ -22,5 +22,6 @@ defineLazyExport(mappers, "PaymentMapper", "./payment.mapper");
 defineLazyExport(mappers, "SubjectMapper", "./subject.mapper");
 defineLazyExport(mappers, "LookupMapper", "./lookup.mapper");
 defineLazyExport(mappers, "LocationMapper", "./location.mapper");
+defineLazyExport(mappers, "AttendanceMapper", "./attendance.mapper");
 
 module.exports = mappers;
