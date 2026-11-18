@@ -2,6 +2,7 @@ const classRepository = require("../repositories/class.repository");
 const classApplicationRepository = require("../repositories/class.application.repository");
 const tutorRepository = require("../repositories/tutor.repository");
 const outboxService = require("./outbox.service");
+const attendanceService = require("./attendance.service");
 const { NOTIFICATION_TYPES } = require("../constants/notification");
 const { CLASS_APPLICATION_STATUS } = require("../constants/classApplication");
 const { CLASS_STATUS } = require("../constants/class");
@@ -79,6 +80,7 @@ const approveCancellation = async (applicationId) => {
     }
 
     await tutorRepository.decrementClassStats(tutor._id, { session });
+    await attendanceService.handleApplicationCancelled(applicationId, { session });
     await outboxService.enqueueNotification({
       dedupeKey: `class-application:${applicationId}:cancellation-approved`,
       userId: tutorUserId,

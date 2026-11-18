@@ -20,5 +20,6 @@ defineLazyExport(validations, "classApplicationAdminValidation", "./classApplica
 defineLazyExport(validations, "cancellationAdminValidation", "./cancellationAdmin.validation");
 defineLazyExport(validations, "profileChangeAdminValidation", "./profileChangeAdmin.validation");
 defineLazyExport(validations, "paymentValidation", "./payment.validation");
+defineLazyExport(validations, "attendanceValidation", "./attendance.validation");
 
 module.exports = validations;
