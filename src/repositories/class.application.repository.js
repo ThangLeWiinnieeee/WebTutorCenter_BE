@@ -53,10 +53,13 @@ const findApprovedByClassId = async (classId, { session } = {}) => {
   return await ClassApplication.findOne({
     classId,
     status: CLASS_APPLICATION_STATUS.APPROVED,
-  }).session(session || null).populate({
-    path: "tutorId",
-    populate: { path: "userId", select: POPULATE_TUTOR_USER },
-  });
+  })
+    .sort({ feePaid: -1, updatedAt: -1 })
+    .session(session || null)
+    .populate({
+      path: "tutorId",
+      populate: { path: "userId", select: POPULATE_TUTOR_USER },
+    });
 };
 
 // Tìm đơn đang khoá một lớp (đã chọn/ghép/xin huỷ gia sư)

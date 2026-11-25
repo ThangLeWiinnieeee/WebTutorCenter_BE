@@ -20,6 +20,7 @@ const chatRoutes = require("./chat.routes");
 const chatbotRoutes = require("./chatbot.routes");
 const cccdRoutes = require("./cccd.routes");
 const paymentRoutes = require("./payment.routes");
+const attendanceRoutes = require("./attendance.routes");
 
 // Làm sạch input (xoá key toán tử Mongo "$"/"." ) cho mọi route /api -> chống NoSQL injection
 router.use(sanitizeMongo);
@@ -43,5 +44,6 @@ router.use("/chat", chatRoutes);
 router.use("/chatbot", chatbotRoutes);
 router.use("/cccd", cccdRoutes);
 router.use("/payments", paymentRoutes);
+router.use("/attendance", attendanceRoutes);
 
 module.exports = router;

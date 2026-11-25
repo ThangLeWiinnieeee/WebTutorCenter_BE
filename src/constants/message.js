@@ -327,6 +327,34 @@ const MESSAGE = {
   NOTIF_TUTOR_APPROVED:
     "Chúc mừng! Hồ sơ gia sư của bạn đã được phê duyệt. Bạn chính thức trở thành gia sư.",
   NOTIF_REVIEW_REPLIED: "Gia sư đã phản hồi đánh giá của bạn. Xem phản hồi trong trang chi tiết gia sư.",
+
+  // Attendance (Điểm danh buổi học)
+  ATTENDANCE_OVERVIEW_SUCCESS: "Lấy thông tin kỳ điểm danh thành công",
+  ATTENDANCE_SESSIONS_SUCCESS: "Lấy danh sách buổi điểm danh thành công",
+  ATTENDANCE_SESSION_DETAIL_SUCCESS: "Lấy chi tiết buổi điểm danh thành công",
+  ATTENDANCE_CHECKIN_SUCCESS: "Đã gửi yêu cầu check-in đầu buổi, đang chờ người đăng xác nhận",
+  ATTENDANCE_CHECKIN_CONFIRM_SUCCESS: "Đã xác nhận bắt đầu buổi học",
+  ATTENDANCE_CHECKIN_REJECT_SUCCESS: "Đã từ chối yêu cầu check-in",
+  ATTENDANCE_CHECKOUT_SUCCESS: "Đã gửi yêu cầu check-out cuối buổi, đang chờ người đăng xác nhận",
+  ATTENDANCE_CHECKOUT_CONFIRM_SUCCESS: "Đã xác nhận kết thúc buổi học",
+  ATTENDANCE_CHECKOUT_REJECT_SUCCESS: "Đã từ chối yêu cầu check-out",
+  ATTENDANCE_DISPUTE_SUCCESS: "Đã gửi yêu cầu hỗ trợ / khiếu nại đến quản trị viên",
+  ATTENDANCE_ADMIN_LIST_SUCCESS: "Lấy danh sách buổi điểm danh cho quản trị viên thành công",
+  ATTENDANCE_ADMIN_CONFIRM_SUCCESS: "Admin đã duyệt điểm danh thay học viên thành công",
+  ATTENDANCE_RESOLVE_SUCCESS: "Đã xử lý và lưu kết luận buổi điểm danh thành công",
+  ATTENDANCE_INIT_PERIOD_SUCCESS: "Đã khởi tạo kỳ điểm danh thành công",
+  ATTENDANCE_PERIOD_NOT_FOUND: "Không tìm thấy kỳ điểm danh cho lớp học này",
+  ATTENDANCE_PERIOD_NOT_STARTED: "Chưa đến ngày bắt đầu kỳ điểm danh",
+  ATTENDANCE_PERIOD_INACTIVE: "Kỳ điểm danh hiện không còn hoạt động",
+  ATTENDANCE_SESSION_NOT_FOUND: "Không tìm thấy buổi điểm danh",
+  ATTENDANCE_NOT_AUTHORIZED: "Bạn không có quyền truy cập thông tin điểm danh của lớp này",
+  ATTENDANCE_PHOTO_REQUIRED: "Vui lòng tải lên ảnh minh chứng điểm danh",
+  ATTENDANCE_ALREADY_IN_PROGRESS: "Bạn đang có một buổi học khác đang chờ xác nhận hoặc đang diễn ra",
+  ATTENDANCE_CONFIRM_EXPIRED: "Đã quá thời hạn 30 phút xác nhận. Vui lòng gửi yêu cầu hỗ trợ để admin xem xét.",
+  ATTENDANCE_INVALID_STATUS: "Trạng thái buổi điểm danh không hợp lệ cho thao tác này",
+  ATTENDANCE_CLASS_NOT_READY: "Lớp học chưa được duyệt gia sư hoặc chưa thanh toán phí nhận lớp",
+  ATTENDANCE_ADMIN_INSUFFICIENT_DURATION: "Thời lượng xác minh phải lớn hơn hoặc bằng số phút yêu cầu của lớp",
+  ATTENDANCE_DISPUTE_ALREADY_OPEN: "Buổi học này đang có một yêu cầu hỗ trợ chờ xử lý",
 };
 
 module.exports = MESSAGE;
