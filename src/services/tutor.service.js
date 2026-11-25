@@ -10,6 +10,7 @@ const { TUTOR_STATUS } = require("../constants/tutor");
 const OCCUPATION_STATUS = require("../constants/occupationStatus");
 const { TutorMapper } = require("../mappers");
 const cccdService = require("./cccd.service");
+const learnerAffinityService = require("./learnerAffinity.service");
 
 // Hồ sơ chứng thực đầy đủ khi: có CCCD 2 mặt + (sinh viên: thẻ SV 2 mặt | còn lại: ≥1 bằng cấp).
 // Dùng để chặn nhận lớp và kiểm tra khi gia sư bổ sung hồ sơ.
@@ -105,6 +106,23 @@ const registerTutor = async (userId, tutorData) => {
   return await TutorMapper.toDTO(tutor, user, null, { includeDocuments: true });
 };
 
+// Ẩn SĐT/email ở mọi API công khai — liên hệ chỉ được chia sẻ giữa người đăng và gia sư
+// sau khi gia sư nhận lớp (tránh bị gọi làm phiền). Giữ dateOfBirth để FE tính tuổi.
+const stripContact = (dtos) => {
+  for (const dto of Array.isArray(dtos) ? dtos : [dtos]) {
+    delete dto.phone;
+    delete dto.email;
+  }
+  return dtos;
+};
+
+// Danh sách DTO công khai: kèm cờ uy tín, không có thông tin liên hệ
+const toPublicDTOList = async (tutors) => {
+  const dtoList = await TutorMapper.toDTOList(tutors);
+  markTrusted(dtoList, await getTrustedTutorIdSet());
+  return stripContact(dtoList);
+};
+
 // Lấy hồ sơ gia sư của người dùng hiện tại (kèm cờ uy tín)
 const getTutorProfile = async (userId) => {
   const tutor = await tutorRepository.findByUserId(userId);
@@ -122,8 +140,7 @@ const getTutorProfile = async (userId) => {
 // Lấy danh sách tất cả gia sư đã approved (có phân trang, sắp xếp theo totalClassesAccepted)
 const getActiveTutors = async (page = 1, limit = 20) => {
   const result = await tutorRepository.findAllApproved(page, limit);
-  const dtoList = await TutorMapper.toDTOList(result.tutors);
-  markTrusted(dtoList, await getTrustedTutorIdSet());
+  const dtoList = await toPublicDTOList(result.tutors);
   return {
     tutors: dtoList,
     total: result.total,
@@ -135,29 +152,26 @@ const getActiveTutors = async (page = 1, limit = 20) => {
 // Lấy top 10 gia sư nổi bật (sắp xếp theo tổng số lần nhận lớp)
 const getTopTutors = async (limit = 10) => {
   const tutors = await tutorRepository.findTopTutors(limit);
-  const dtoList = await TutorMapper.toDTOList(tutors);
-  return markTrusted(dtoList, await getTrustedTutorIdSet());
+  return toPublicDTOList(tutors);
 };
 
 // Lấy top 10 gia sư tháng hiện tại (sắp xếp theo classesAcceptedThisMonth)
 const getTopTutorsThisMonth = async (limit = 10) => {
   const tutors = await tutorRepository.findTopTutorsThisMonth(limit);
-  const dtoList = await TutorMapper.toDTOList(tutors);
-  return markTrusted(dtoList, await getTrustedTutorIdSet());
+  return toPublicDTOList(tutors);
 };
 
 // Lấy gia sư mới được approved (trong N ngày gần đây)
 const getNewTutors = async (days = 7, limit = 10) => {
   const tutors = await tutorRepository.findNewTutors(days, limit);
-  const dtoList = await TutorMapper.toDTOList(tutors);
-  return markTrusted(dtoList, await getTrustedTutorIdSet());
+  return toPublicDTOList(tutors);
 };
 
-// Tìm kiếm & lọc gia sư
-const searchActiveTutors = async (filters = {}, page = 1, limit = 20) => {
-  const result = await tutorRepository.searchTutors(filters, page, limit);
-  const dtoList = await TutorMapper.toDTOList(result.tutors);
-  markTrusted(dtoList, await getTrustedTutorIdSet());
+// Tìm kiếm & lọc gia sư (học viên đăng nhập được xếp theo mức quan tâm "môn|tỉnh")
+const searchActiveTutors = async (filters = {}, page = 1, limit = 20, user = null) => {
+  const affinity = await learnerAffinityService.getRankingContexts(user);
+  const result = await tutorRepository.searchTutors(filters, page, limit, { affinity });
+  const dtoList = await toPublicDTOList(result.tutors);
   return {
     tutors: dtoList,
     total: result.total,
@@ -165,6 +179,9 @@ const searchActiveTutors = async (filters = {}, page = 1, limit = 20) => {
     limit: result.limit,
   };
 };
+
+// Học viên áp dụng bộ lọc ở /tutors → ghi tín hiệu quan tâm
+const recordSearchFilter = (user, filters) => learnerAffinityService.recordFilter(user, filters);
 
 // Lấy chi tiết một gia sư (public endpoint)
 const getTutorById = async (tutorId) => {
@@ -177,11 +194,7 @@ const getTutorById = async (tutorId) => {
   }
   const dto = await TutorMapper.toDTO(tutor, null);
   markTrusted(dto, await getTrustedTutorIdSet());
-  // Ẩn thông tin liên hệ ở trang công khai /tutors/:id — SĐT/email chỉ được chia sẻ
-  // giữa người đăng và gia sư sau khi gia sư nhận lớp (tránh bị gọi làm phiền).
-  delete dto.phone;
-  delete dto.email;
-  return dto;
+  return stripContact(dto);
 };
 
 module.exports = {
@@ -193,5 +206,6 @@ module.exports = {
   getTopTutorsThisMonth,
   getNewTutors,
   searchActiveTutors,
+  recordSearchFilter,
   getTutorById,
 };

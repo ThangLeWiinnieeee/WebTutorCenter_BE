@@ -159,8 +159,27 @@ const findTrustedTutorIds = async (limit = 10) => {
   return docs.map((d) => d._id);
 };
 
-// Tìm kiếm và lọc gia sư đã duyệt (lọc ở tầng DB trước khi phân trang để tổng số chính xác)
-const searchTutors = async (filters = {}, page = 1, limit = 20) => {
+// Điểm cá nhân hóa của 1 gia sư = tổng điểm các ngữ cảnh "môn|tỉnh" mà gia sư khớp
+// (vế rỗng = khớp mọi giá trị). $literal để tên môn không bị hiểu là đường dẫn field.
+const buildAffinityScoreExpr = (affinity) => ({
+  $add: affinity.map(({ subject, province, score }) => ({
+    $cond: [
+      {
+        $and: [
+          ...(subject ? [{ $in: [{ $literal: subject }, { $ifNull: ["$subjects", []] }] }] : []),
+          ...(province != null ? [{ $eq: ["$teachingAreas.province", province] }] : []),
+        ],
+      },
+      score,
+      0,
+    ],
+  })),
+});
+
+// Tìm kiếm và lọc gia sư đã duyệt (lọc ở tầng DB trước khi phân trang để tổng số chính xác).
+// affinity: ngữ cảnh quan tâm của học viên [{ subject, province, score }] → chỉ đổi THỨ TỰ,
+// bộ lọc vẫn quyết định tập kết quả. Rỗng → thứ tự chung.
+const searchTutors = async (filters = {}, page = 1, limit = 20, { affinity = [] } = {}) => {
   const safePage = Math.max(1, Number(page) || 1);
   const skip = (safePage - 1) * limit;
 
@@ -229,15 +248,18 @@ const searchTutors = async (filters = {}, page = 1, limit = 20) => {
     $addFields: {
       _reviewCount: { $ifNull: ["$reviewCount", 0] },
       _averageRating: { $ifNull: ["$averageRating", 0] },
+      ...(affinity.length ? { _affinity: buildAffinityScoreExpr(affinity) } : {}),
     },
   });
+
+  // Ưu tiên gia sư có nhiều đánh giá & điểm sao cao (cao → thấp),
+  // sau đó tới số lớp đã nhận và gia sư mới hơn để phá hòa.
+  const baseSort = { _reviewCount: -1, _averageRating: -1, totalClassesAccepted: -1, createdAt: -1 };
 
   pipeline.push({
     $facet: {
       items: [
-        // Ưu tiên gia sư có nhiều đánh giá & điểm sao cao (cao → thấp),
-        // sau đó tới số lớp đã nhận và gia sư mới hơn để phá hòa.
-        { $sort: { _reviewCount: -1, _averageRating: -1, totalClassesAccepted: -1, createdAt: -1 } },
+        { $sort: affinity.length ? { _affinity: -1, ...baseSort } : baseSort },
         { $skip: skip },
         { $limit: limit },
       ],

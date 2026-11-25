@@ -10,6 +10,7 @@ const messageRepository = require("../repositories/message.repository");
 const notificationRepository = require("../repositories/notification.repository");
 const profileChangeRequestRepository = require("../repositories/profileChangeRequest.repository");
 const otpRepository = require("../repositories/otp.repository");
+const learnerAffinityRepository = require("../repositories/learnerAffinity.repository");
 const pendingRegistrationRepository = require("../repositories/pendingRegistration.repository");
 const reviewService = require("./review.service");
 const { withTransaction } = require("../utils/transaction");
@@ -75,6 +76,7 @@ const purgeUserData = async (user) => {
     // Thông báo, yêu cầu đổi hồ sơ, dữ liệu tạm theo email
     notificationRepository.deleteByUserId(userId),
     profileChangeRequestRepository.deleteByUserId(userId),
+    learnerAffinityRepository.deleteByUserId(userId),
     otpRepository.deleteByEmail(user.email),
     pendingRegistrationRepository.deleteByEmail(user.email),
   ]);

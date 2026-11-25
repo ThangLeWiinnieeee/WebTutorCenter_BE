@@ -37,6 +37,12 @@ const searchTutorsQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(50).default(20),
 });
 
+// Sự kiện học viên áp dụng bộ lọc ở /tutors (chỉ môn + tỉnh dùng cho cá nhân hóa)
+const searchFilterEventSchema = Joi.object({
+  subject: Joi.string().trim().allow("").max(100).optional(),
+  province: Joi.number().integer().positive().optional(),
+});
+
 const availabilitySlotSchema = Joi.object({
   day: Joi.string()
     .valid(...DAYS_OF_WEEK)
@@ -342,4 +348,5 @@ module.exports = {
   topTutorsQuerySchema,
   newTutorsQuerySchema,
   searchTutorsQuerySchema,
+  searchFilterEventSchema,
 };

@@ -12,6 +12,7 @@ const tutorRepository = require("../repositories/tutor.repository");
 const userRepository = require("../repositories/user.repository");
 const tutorService = require("./tutor.service");
 const outboxService = require("./outbox.service");
+const learnerAffinityService = require("./learnerAffinity.service");
 const { ClassApplicationMapper } = require("../mappers");
 const { buildPagination } = require("../utils/pagination");
 const { withTransaction } = require("../utils/transaction");
@@ -215,6 +216,9 @@ const selectApplicant = async (userId, classId, applicationId) => {
       { session, dedupePrefix: `class-application:${applicationId}:selected:${transitionId}:admin` },
     );
   });
+
+  // Tín hiệu cá nhân hóa /tutors (lớp đã tính khi đăng thì bỏ qua), best-effort
+  learnerAffinityService.recordClass(userId, classItem).catch(() => {});
 
   return ClassApplicationMapper.toDTO(await classApplicationRepository.findById(applicationId));
 };
